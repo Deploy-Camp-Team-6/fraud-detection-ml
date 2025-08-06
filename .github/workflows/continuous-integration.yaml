@@ -18,6 +18,9 @@ jobs:
       - name: '✅ Checkout Repository'
         uses: actions/checkout@v4
 
+      - name: Install poetry
+        run: pipx install poetry
+
       - name: '🐍 Set up Python 3.10 & Cache Dependencies'
         uses: actions/setup-python@v4
         with:
@@ -25,9 +28,7 @@ jobs:
           cache: 'poetry'
 
       - name: '📦 Install Dependencies (including dev)'
-        run: |
-          pip install poetry
-          poetry install
+        run: poetry install
 
       - name: '🎨 Run Linter (Ruff)'
         run: |
