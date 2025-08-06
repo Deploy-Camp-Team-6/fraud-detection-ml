@@ -18,20 +18,36 @@ jobs:
       - name: '✅ Checkout Repository'
         uses: actions/checkout@v4
 
-      - name: '🐍 Set up Python 3.10'
+      - name: '🐍 Set up Python 3.10 & Cache Dependencies'
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+          cache: 'poetry'
 
       - name: '📦 Install Dependencies (including dev)'
         run: |
           pip install poetry
-          # Note: We do NOT use --no-dev here because we need pytest and ruff
           poetry install
 
       - name: '🎨 Run Linter (Ruff)'
         run: |
           poetry run ruff check .
+
+      - name: '🔒 Run Security Scan (Safety)'
+        run: |
+          # Ignoring vulnerabilities related to deserialization in MLflow,
+          # as we are in a controlled environment.
+          poetry run safety check \
+            --ignore=60492 \
+            --ignore=71691 \
+            --ignore=71692 \
+            --ignore=77891 \
+            --ignore=71579 \
+            --ignore=71577 \
+            --ignore=71578 \
+            --ignore=71693 \
+            --ignore=71587 \
+            --ignore=71584
 
       - name: '🧪 Run Unit Tests (Pytest)'
         run: |

@@ -18,13 +18,23 @@ SAMPLE_FEATURE_CONFIG = {
     'drop_cols': ['transaction_id']
 }
 
+SAMPLE_PARAMS = {
+    'data_transformation': {
+        'numeric_imputer_strategy': 'median',
+        'categorical_imputer_strategy': 'most_frequent'
+    }
+}
+
 def test_preprocessor_creation():
     """
     Tests if the DataTransformation class correctly creates a preprocessor
     based on the provided configuration.
     """
     # Arrange
-    transformer = DataTransformation(feature_config=SAMPLE_FEATURE_CONFIG)
+    transformer = DataTransformation(
+        feature_config=SAMPLE_FEATURE_CONFIG,
+        params=SAMPLE_PARAMS
+    )
 
     # Act
     preprocessor = transformer.preprocessor
@@ -48,10 +58,16 @@ def test_preprocessor_creation():
 
 def test_transformation_on_sample_data():
     """
-    Tests if the fit_transform method runs without errors on sample data.
+    Tests if the preprocessor created by DataTransformation can correctly
+    transform sample data without errors.
     """
     # Arrange
-    transformer = DataTransformation(feature_config=SAMPLE_FEATURE_CONFIG)
+    transformer = DataTransformation(
+        feature_config=SAMPLE_FEATURE_CONFIG,
+        params=SAMPLE_PARAMS
+    )
+    preprocessor = transformer.preprocessor
+
     sample_data = pd.DataFrame({
         'transaction_id': [1, 2, 3],
         'amount': [100.0, 200.0, 50.0],
@@ -60,15 +76,17 @@ def test_transformation_on_sample_data():
         'label': [0, 1, 0]
     })
 
+    X_sample = sample_data.drop(columns=['label', 'transaction_id'])
+    y_sample = sample_data['label']
+
     # Act
     try:
-        X_transformed, y_transformed = transformer.fit_transform(sample_data)
+        X_transformed = preprocessor.fit_transform(X_sample)
     except Exception as e:
-        pytest.fail(f"DataTransformation.fit_transform raised an exception: {e}")
+        pytest.fail(f"Preprocessor fit_transform raised an exception: {e}")
 
     # Assert
     assert X_transformed.shape[0] == 3
-    assert y_transformed.shape[0] == 3
     # The number of columns in X_transformed will depend on one-hot encoding
     # For this sample data, merchant_type has 2 unique values, device_type has 2.
     # Total columns = 1 (numeric) + 2 (merchant_type) + 2 (device_type) = 5

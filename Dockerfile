@@ -31,6 +31,9 @@ RUN poetry install --no-root --no-dev
 # This stage builds the final, runnable image.
 FROM base AS final
 
+# Create a non-root user to run the application
+RUN groupadd -r appgroup && useradd -r -g appgroup -d /app -s /sbin/nologin -c "Docker image user" appuser
+
 # Set the working directory.
 WORKDIR /app
 
@@ -43,6 +46,12 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Copy the entire project source code into the working directory.
 COPY . .
 
+# Change ownership of the app directory to the new user
+RUN chown -R appuser:appgroup /app
+
+# Switch to the non-root user
+USER appuser
+
 # [Optional] Load environment variables from a .env file if it exists.
 # In a real CI/CD pipeline, these would be injected as secrets.
 # Make sure your main script can read them. For this project, they are not needed by the training script
@@ -50,10 +59,13 @@ COPY . .
 # ENV MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
 # ENV MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
 
-# Define the default command to run when the container starts.
-# This executes the main training pipeline.
-# Set the entrypoint to the base command.
-ENTRYPOINT ["python", "src/pipeline/training_pipeline.py"]
+# Copy the entrypoint script and make it executable
+COPY scripts/entrypoint.sh /app/scripts/entrypoint.sh
+RUN chmod +x /app/scripts/entrypoint.sh
 
-# Set a default model to run if no arguments are provided.
-CMD ["--model", "xgboost"]
+# Define the entrypoint for the container.
+# This script will pull data and then run the training pipeline.
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]
+
+# Set a default model to run if no arguments are provided to the entrypoint.
+CMD ["--model", "xgboost", "--tune"]

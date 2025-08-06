@@ -20,31 +20,10 @@ jobs:
       - name: '✅ Checkout Repository'
         uses: actions/checkout@v4
 
-      - name: '🐍 Set up Python 3.10'
-        # ... (this part remains the same) ...
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+      - name: '🐳 Build Docker Image'
+        run: docker build -t fraud-detection-pipeline .
 
-      - name: '📦 Install Dependencies'
-        # ... (this part remains the same) ...
-        run: |
-          pip install poetry
-          poetry install --no-root --no-dev
-      
-      - name: '💾 Configure DVC and Pull Data'
-        # ... (this part remains the same) ...
-        run: |
-          pip install dvc[s3]
-          dvc remote add -d minio s3://fraud-detection/dvc-storage
-          dvc remote modify minio endpointurl ${{ secrets.MINIO_ENDPOINT_URL }}
-          dvc remote modify minio access_key_id ${{ secrets.MINIO_ACCESS_KEY_ID }}
-          dvc remote modify minio secret_access_key ${{ secrets.MINIO_SECRET_KEY }}
-          dvc pull --force
-
-      - name: '🚀 Run Model Training Pipeline'
-        # ⭐ THIS IS THE UPDATED STEP ⭐
-        # It dynamically extracts the model name from the release tag.
+      - name: '🚀 Run Model Training in Docker'
         run: |
           # 1. Check if the tag format is correct (contains a '/')
           if [[ "${{ github.ref_name }}" != */* ]]; then
@@ -56,8 +35,14 @@ jobs:
           MODEL_NAME=$(echo "${{ github.ref_name }}" | cut -d'/' -f1)
           echo "Extracted model name: $MODEL_NAME"
 
-          # 3. Run the training script with the dynamic model name
-          poetry run python src/pipeline/training_pipeline.py --model "$MODEL_NAME"
+          # 3. Run the Docker container, passing secrets and arguments
+          docker run --rm \
+            -e MLFLOW_TRACKING_URI \
+            -e AWS_ACCESS_KEY_ID \
+            -e AWS_SECRET_ACCESS_KEY \
+            -e MLFLOW_S3_ENDPOINT_URL \
+            fraud-detection-pipeline \
+            --model "$MODEL_NAME" --tune
           
       - name: '🎉 Training Complete'
         run: echo "Model training and registration complete. Check your MLflow UI."

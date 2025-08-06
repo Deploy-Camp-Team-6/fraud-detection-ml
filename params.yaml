@@ -5,6 +5,11 @@ train:
   random_state: 42
   target_column: "label"
   handle_imbalance: True # Master switch for imbalance handling
+  n_splits: 5
+
+data_transformation:
+  numeric_imputer_strategy: "median"
+  categorical_imputer_strategy: "most_frequent"
 
 # --- Model Hyperparameters ---
 
