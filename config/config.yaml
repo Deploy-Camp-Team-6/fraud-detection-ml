@@ -1,19 +1,19 @@
 # config/config.yaml
-data_source:
-  raw_data_dir: "data/raw"
-  processed_data_dir: "data/processed"
-  raw_data_filename: "fraud_detection.csv"
+data:
+  raw_path: "data/raw/fraud_detection.csv"
+  processed_train_path: "data/processed/train.csv"
+  processed_test_path: "data/processed/test.csv"
+  # As described by the user
+  target_column: "label"
+  transaction_id_column: "transaction_id"
+  numerical_columns: ["amount"]
+  categorical_columns: ["merchant_type", "device_type"]
 
-minio_credentials:
-  endpoint_url: "http://minio:9000"
-  bucket_name: "fraud-detection"
-
-mlflow_config:
-  tracking_uri: "http://mlflow:5000"
-  experiment_name: "Fraud-Detection-Experiments" # More generic name
-  registered_model_base_name: "FraudDetector" # Base name for registration
+mlflow:
+  tracking_uri: "http://127.0.0.1:5000" # Use localhost for local runs connecting to docker
+  experiment_name: "Fraud-Detection-Pipeline"
+  registered_model_base_name: "FraudDetector"
 
 artifacts:
   preprocessor_name: "preprocessor.joblib"
-  processed_train_name: "train.csv"
-  processed_test_name: "test.csv"
+  model_dir: "saved_models"

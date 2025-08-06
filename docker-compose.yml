@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  minio:
+    image: minio/minio:RELEASE.2022-03-17T06-34-49Z
+    ports:
+      - "9000:9000" # API
+      - "9001:9001" # Console
+    volumes:
+      - ./data/minio_data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  postgres:
+    image: postgres:13
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflow
+      POSTGRES_DB: mlflow
+    volumes:
+      - ./data/postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mlflow:
+    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+    command: >
+      sh -c "
+      # Wait for services
+      sleep 10;
+      # Setup bucket if it doesn't exist
+      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      if ! mc ls myminio/mlflow; then mc mb myminio/mlflow; fi;
+      # Start MLflow server
+      mlflow server \\
+        --backend-store-uri postgresql://mlflow:mlflow@postgres/mlflow \\
+        --default-artifact-root s3://mlflow/artifacts \\
+        --host 0.0.0.0
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge
