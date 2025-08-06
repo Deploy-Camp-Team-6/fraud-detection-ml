@@ -1,33 +1,75 @@
-# tests/test_data_transformation.py
 import pandas as pd
 import pytest
 from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
 
 # Add src to path to allow imports
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from src.components.data_transformation import DataTransformation, DataTransformationConfig
+from src.components.data_transformation import DataTransformation
+
+# A sample feature configuration for testing
+SAMPLE_FEATURE_CONFIG = {
+    'target_column': 'label',
+    'numerical_cols': ['amount'],
+    'categorical_cols': ['merchant_type', 'device_type'],
+    'drop_cols': ['transaction_id']
+}
 
 def test_preprocessor_creation():
     """
-    Tests if the get_preprocessor method returns a valid ColumnTransformer object.
+    Tests if the DataTransformation class correctly creates a preprocessor
+    based on the provided configuration.
     """
     # Arrange
-    config = DataTransformationConfig()
-    transformer = DataTransformation(config)
-    numeric_features = ['amount', 'oldbalanceOrg']
-    categorical_features = ['type']
+    transformer = DataTransformation(feature_config=SAMPLE_FEATURE_CONFIG)
 
     # Act
-    preprocessor = transformer.get_preprocessor(
-        numeric_features=numeric_features,
-        categorical_features=categorical_features
-    )
+    preprocessor = transformer.preprocessor
 
     # Assert
     assert isinstance(preprocessor, ColumnTransformer)
     assert len(preprocessor.transformers) == 2
-    assert preprocessor.transformers[0][0] == 'numeric'
-    assert preprocessor.transformers[1][0] == 'categorical'
+
+    # Check the numeric transformer
+    numeric_transformer_tuple = preprocessor.transformers[0]
+    assert numeric_transformer_tuple[0] == 'numeric'
+    assert isinstance(numeric_transformer_tuple[1], Pipeline)
+    assert len(numeric_transformer_tuple[1].steps) == 3 # log_transformer, imputer, scaler
+    assert numeric_transformer_tuple[1].steps[0][0] == 'log_transformer'
+
+    # Check the categorical transformer
+    categorical_transformer_tuple = preprocessor.transformers[1]
+    assert categorical_transformer_tuple[0] == 'categorical'
+    assert isinstance(categorical_transformer_tuple[1], Pipeline)
+    assert len(categorical_transformer_tuple[1].steps) == 2 # imputer, onehot
+
+def test_transformation_on_sample_data():
+    """
+    Tests if the fit_transform method runs without errors on sample data.
+    """
+    # Arrange
+    transformer = DataTransformation(feature_config=SAMPLE_FEATURE_CONFIG)
+    sample_data = pd.DataFrame({
+        'transaction_id': [1, 2, 3],
+        'amount': [100.0, 200.0, 50.0],
+        'merchant_type': ['retail', 'travel', 'retail'],
+        'device_type': ['mobile', 'desktop', 'mobile'],
+        'label': [0, 1, 0]
+    })
+
+    # Act
+    try:
+        X_transformed, y_transformed = transformer.fit_transform(sample_data)
+    except Exception as e:
+        pytest.fail(f"DataTransformation.fit_transform raised an exception: {e}")
+
+    # Assert
+    assert X_transformed.shape[0] == 3
+    assert y_transformed.shape[0] == 3
+    # The number of columns in X_transformed will depend on one-hot encoding
+    # For this sample data, merchant_type has 2 unique values, device_type has 2.
+    # Total columns = 1 (numeric) + 2 (merchant_type) + 2 (device_type) = 5
+    assert X_transformed.shape[1] == 5

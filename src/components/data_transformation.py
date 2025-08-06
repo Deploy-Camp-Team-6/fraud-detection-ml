@@ -1,98 +1,99 @@
-# src/components/data_transformation.py
 import logging
-from dataclasses import dataclass
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, FunctionTransformer
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-@dataclass
-class DataTransformationConfig:
-    """Configuration for data transformation."""
-    target_column: str = "isFraud"
-    # Drop high-cardinality or identifier columns
-    drop_columns: List[str] = ["step", "nameOrig", "nameDest"]
-
 class DataTransformation:
-    """Handles feature engineering and preprocessing."""
-    def __init__(self, config: DataTransformationConfig):
-        self.config = config
+    """Handles feature engineering and preprocessing based on configuration."""
 
-    def get_preprocessor(self, numeric_features: List[str], categorical_features: List[str]) -> ColumnTransformer:
+    def __init__(self, feature_config: dict):
         """
-        Creates and returns a scikit-learn ColumnTransformer for preprocessing.
-        - Imputes and scales numerical features.
-        - Imputes and one-hot encodes categorical features.
+        Initializes the DataTransformation component.
+        Args:
+            feature_config (dict): A dictionary containing feature definitions
+                                   (e.g., target, numerical, categorical, drop).
         """
-        logging.info("Building preprocessing pipeline.")
-        
-        # Pipeline for numerical features
+        self.config = feature_config
+        self.preprocessor = self._create_preprocessor()
+
+    def _create_preprocessor(self) -> ColumnTransformer:
+        """
+        Creates a scikit-learn ColumnTransformer for preprocessing based on config.
+        - Applies log transform, imputation, and scaling to numerical features.
+        - Applies imputation and one-hot encoding to categorical features.
+        """
+        logging.info("Building preprocessing pipeline from configuration.")
+
+        # Pipeline for numerical features: log transform -> impute -> scale
+        # We use np.log1p which is log(1+x) to handle zero values in 'amount'.
         numeric_pipeline = Pipeline(steps=[
-            ("imputer", SimpleImputer(strategy="median")), # Robust to outliers
+            ("log_transformer", FunctionTransformer(np.log1p, validate=True)),
+            ("imputer", SimpleImputer(strategy="median")),
             ("scaler", StandardScaler())
         ])
 
-        # Pipeline for categorical features
+        # Pipeline for categorical features: impute -> one-hot encode
         categorical_pipeline = Pipeline(steps=[
-            ("imputer", SimpleImputer(strategy="most_frequent")), # or 'constant', fill_value='missing'
+            ("imputer", SimpleImputer(strategy="most_frequent")),
             ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
         ])
 
         preprocessor = ColumnTransformer(
             transformers=[
-                ("numeric", numeric_pipeline, numeric_features),
-                ("categorical", categorical_pipeline, categorical_features)
+                ("numeric", numeric_pipeline, self.config['numerical_cols']),
+                ("categorical", categorical_pipeline, self.config['categorical_cols'])
             ],
-            remainder='passthrough' # Keep other columns if any, though we drop them first
+            remainder='drop' # Drop columns not specified in transformers
         )
         
         logging.info("Preprocessing pipeline built successfully.")
         return preprocessor
 
-    def initiate_data_transformation(self, train_df: pd.DataFrame, test_df: pd.DataFrame):
-        """
-        Applies the complete data transformation process.
-        - Identifies feature types
-        - Builds and fits the preprocessor on training data
-        - Transforms both train and test data
-        - Returns preprocessor object and transformed data arrays
-        """
-        logging.info("Starting data transformation process.")
+    def fit_transform(self, df: pd.DataFrame) -> Tuple[np.ndarray, pd.Series]:
+        """Fits the preprocessor and transforms the data."""
+        logging.info("Fitting preprocessor and transforming data.")
         
-        # Drop specified columns
-        train_df = train_df.drop(columns=self.config.drop_columns, errors='ignore')
-        test_df = test_df.drop(columns=self.config.drop_columns, errors='ignore')
+        # Drop unused columns first
+        df_processed = df.drop(columns=self.config.get('drop_cols', []), errors='ignore')
 
-        # Separate features (X) and target (y)
-        X_train = train_df.drop(columns=[self.config.target_column])
-        y_train = train_df[self.config.target_column]
-        X_test = test_df.drop(columns=[self.config.target_column])
-        y_test = test_df[self.config.target_column]
+        X = df_processed.drop(columns=[self.config['target_column']])
+        y = df_processed[self.config['target_column']]
 
-        # Identify feature types
-        numeric_features = X_train.select_dtypes(include=np.number).columns.tolist()
-        categorical_features = X_train.select_dtypes(include=["object", "category"]).columns.tolist()
+        X_transformed = self.preprocessor.fit_transform(X)
 
-        logging.info(f"Identified {len(numeric_features)} numerical features: {numeric_features}")
-        logging.info(f"Identified {len(categorical_features)} categorical features: {categorical_features}")
+        return X_transformed, y
 
-        # Get and fit the preprocessor
-        preprocessor = self.get_preprocessor(numeric_features, categorical_features)
-        preprocessor.fit(X_train)
+    def transform(self, df: pd.DataFrame) -> Tuple[np.ndarray, pd.Series]:
+        """Transforms data using the fitted preprocessor."""
+        logging.info("Transforming new data with the existing preprocessor.")
 
-        # Transform the data
-        X_train_processed = preprocessor.transform(X_train)
-        X_test_processed = preprocessor.transform(X_test)
+        df_processed = df.drop(columns=self.config.get('drop_cols', []), errors='ignore')
 
-        # Get feature names after transformation for logging
-        feature_names = numeric_features + \
-            preprocessor.named_transformers_['categorical']['onehot'].get_feature_names_out(categorical_features).tolist()
-        
-        logging.info("Data transformation complete.")
-        return X_train_processed, y_train, X_test_processed, y_test, preprocessor, feature_names
+        X = df_processed.drop(columns=[self.config['target_column']])
+        y = df_processed[self.config['target_column']]
+
+        X_transformed = self.preprocessor.transform(X)
+
+        return X_transformed, y
+
+    def get_feature_names(self) -> List[str]:
+        """Returns the feature names after transformation."""
+        try:
+            numeric_features = self.config['numerical_cols']
+            categorical_features_raw = self.config['categorical_cols']
+
+            # Get feature names from the one-hot encoder
+            onehot_transformer = self.preprocessor.named_transformers_['categorical']['onehot']
+            categorical_features_encoded = onehot_transformer.get_feature_names_out(categorical_features_raw).tolist()
+
+            return numeric_features + categorical_features_encoded
+        except Exception as e:
+            logging.error(f"Could not retrieve feature names: {e}")
+            return []

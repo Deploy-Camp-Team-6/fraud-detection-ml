@@ -17,3 +17,13 @@ artifacts:
   preprocessor_name: "preprocessor.joblib"
   processed_train_name: "train.csv"
   processed_test_name: "test.csv"
+
+features:
+  target_column: "label"
+  numerical_cols:
+    - "amount"
+  categorical_cols:
+    - "merchant_type"
+    - "device_type"
+  drop_cols:
+    - "transaction_id"

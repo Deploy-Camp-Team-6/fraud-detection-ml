@@ -3,7 +3,8 @@ train:
   model_type: dynamic # This is now controlled by a command-line argument
   test_size: 0.2
   random_state: 42
-  target_column: "isFraud"
+  target_column: "label"
+  handle_imbalance: True # Master switch for imbalance handling
 
 # --- Model Hyperparameters ---
 
@@ -14,6 +15,7 @@ xgboost:
   objective: 'binary:logistic'
   eval_metric: 'aucpr'
   use_label_encoder: False
+  # scale_pos_weight is calculated dynamically in the trainer
 
 lightgbm:
   n_estimators: 200
@@ -21,8 +23,29 @@ lightgbm:
   num_leaves: 31
   objective: 'binary'
   metric: 'aucpr'
+  is_unbalance: True # Controlled by handle_imbalance in the code
 
 logistic_regression:
   solver: 'liblinear'
   C: 1.0
   max_iter: 200
+  class_weight: 'balanced' # Controlled by handle_imbalance in the code
+
+# --- Hyperparameter Tuning Grids ---
+tuning:
+  logistic_regression:
+    param_grid:
+      classifier__C: [0.1, 1.0, 10.0]
+      classifier__solver: ['liblinear']
+
+  xgboost:
+    param_grid:
+      classifier__n_estimators: [50, 100]
+      classifier__max_depth: [3, 5]
+      classifier__learning_rate: [0.05, 0.1]
+
+  lightgbm:
+    param_grid:
+      classifier__n_estimators: [50, 100]
+      classifier__max_depth: [3, 5]
+      classifier__learning_rate: [0.05, 0.1]
