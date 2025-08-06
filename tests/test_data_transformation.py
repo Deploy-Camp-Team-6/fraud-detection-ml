@@ -77,7 +77,6 @@ def test_transformation_on_sample_data():
     })
 
     X_sample = sample_data.drop(columns=['label', 'transaction_id'])
-    y_sample = sample_data['label']
 
     # Act
     try:
