@@ -1,0 +1,35 @@
+# dvc.yaml
+vars:
+  - model: xgboost # Default model, can be overridden with `dvc exp run -S model=<model_name>`
+
+stages:
+  preprocess:
+    cmd: python scripts/run_preprocessing.py
+    deps:
+      - data/raw/fraud_detection.csv
+      - scripts/run_preprocessing.py
+      - src/components/data_transformation.py
+      - config/config.yaml
+    params:
+      - train.target_column
+      - train.test_size
+      - train.random_state
+    outs:
+      - data/processed
+
+  train:
+    cmd: >-
+      python src/pipeline/training_pipeline.py
+      --model ${model}
+      --train-data-path data/processed/train.csv
+      --test-data-path data/processed/test.csv
+      --preprocessor-path data/processed/preprocessor.joblib
+    deps:
+      - data/processed
+      - src/pipeline/training_pipeline.py
+      - src/components/model_trainer.py
+      - src/utils.py
+      - config/config.yaml
+    params:
+      - train
+      - ${model}

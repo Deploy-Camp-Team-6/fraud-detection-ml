@@ -1,6 +1,6 @@
 # src/components/data_transformation.py
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List
 
 import numpy as np
@@ -17,7 +17,7 @@ class DataTransformationConfig:
     """Configuration for data transformation."""
     target_column: str = "isFraud"
     # Drop high-cardinality or identifier columns
-    drop_columns: List[str] = ["step", "nameOrig", "nameDest"]
+    drop_columns: List[str] = field(default_factory=lambda: ["step", "nameOrig", "nameDest"])
 
 class DataTransformation:
     """Handles feature engineering and preprocessing."""

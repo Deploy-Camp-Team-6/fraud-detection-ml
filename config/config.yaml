@@ -17,3 +17,15 @@ artifacts:
   preprocessor_name: "preprocessor.joblib"
   processed_train_name: "train.csv"
   processed_test_name: "test.csv"
+  confusion_matrix_path: "confusion_matrix.png"
+
+mlflow_artifacts:
+  run_name_suffix: "-run"
+  preprocessor_path: "preprocessor"
+  model_path: "model"
+  plot_path: "plots"
+
+plotting:
+  confusion_matrix_labels:
+    - "Not Fraud"
+    - "Fraud"
