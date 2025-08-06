@@ -3,8 +3,11 @@
 name = "fraud-detection-project"
 version = "0.1.0"
 description = "A production-grade MLOps pipeline for fraud detection."
-authors = ["MLOps Engineer <you@example.com>"]
+authors = ["MLOps Engineer bensatriya3@gmail.com"]
 readme = "README.md"
+packages = [
+    { include = "src" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.10"
