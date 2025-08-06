@@ -1,0 +1,13 @@
+# dvc.yaml
+stages:
+  # This stage is for tracking the raw dataset.
+  # We don't run a command to generate it, but we declare it as an output
+  # so DVC can version it.
+  # Run `dvc add data/raw/fraud_detection.csv` to generate the .dvc file.
+  # Run `dvc push` to upload it to remote storage (MinIO).
+  raw-data:
+    cmd: echo "Tracking raw data"
+    deps:
+      - data/raw/fraud_detection.csv
+    outs:
+      - data/raw/fraud_detection.csv.dvc
