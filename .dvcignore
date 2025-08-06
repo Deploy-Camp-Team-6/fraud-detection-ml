@@ -1,0 +1,6 @@
+# Ignore git files and directories
+.git/
+.gitignore
+
+# Ignore DVC's internal cache
+/cache

@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data
+data/processed/
+data/raw/fraud_dataset.csv # Tracked by DVC, not Git
+
+# Notebooks
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# DVC - ignore cache
+.dvc/cache
+
+# Environment
+.env
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
