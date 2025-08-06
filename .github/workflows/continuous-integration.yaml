@@ -1,0 +1,38 @@
+# .github/workflows/continuous-integration.yaml
+
+name: 'Continuous Integration'
+
+# This workflow runs on every push to the main branch
+# and on every pull request that targets the main branch.
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-and-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: '✅ Checkout Repository'
+        uses: actions/checkout@v4
+
+      - name: '🐍 Set up Python 3.10'
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: '📦 Install Dependencies (including dev)'
+        run: |
+          pip install poetry
+          # Note: We do NOT use --no-dev here because we need pytest and ruff
+          poetry install
+
+      - name: '🎨 Run Linter (Ruff)'
+        run: |
+          poetry run ruff check .
+
+      - name: '🧪 Run Unit Tests (Pytest)'
+        run: |
+          poetry run pytest

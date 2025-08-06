@@ -1,0 +1,28 @@
+# params.yaml
+train:
+  model_type: dynamic # This is now controlled by a command-line argument
+  test_size: 0.2
+  random_state: 42
+  target_column: "isFraud"
+
+# --- Model Hyperparameters ---
+
+xgboost:
+  n_estimators: 150
+  max_depth: 5
+  learning_rate: 0.1
+  objective: 'binary:logistic'
+  eval_metric: 'aucpr'
+  use_label_encoder: False
+
+lightgbm:
+  n_estimators: 200
+  learning_rate: 0.05
+  num_leaves: 31
+  objective: 'binary'
+  metric: 'aucpr'
+
+logistic_regression:
+  solver: 'liblinear'
+  C: 1.0
+  max_iter: 200
