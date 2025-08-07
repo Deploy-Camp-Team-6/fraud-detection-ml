@@ -73,6 +73,31 @@ This project provides a fully functional, end-to-end machine learning pipeline f
     ```
     For this project, ensure your MLflow tracking server is running and accessible. The default URI is `http://mlflow:5000`, which implies it's running in a Docker network.
 
+## Configuration Management
+
+This project uses a hierarchical configuration system that combines a YAML file with environment variables, providing flexibility for different deployment environments.
+
+1.  **Base Configuration (`config/config.yaml`):**
+    This file contains the default settings for the pipeline, such as data paths, artifact names, and feature definitions. These defaults are suitable for local development.
+
+2.  **Environment Variable Overrides:**
+    Any setting in `config.yaml` can be dynamically overridden using environment variables. This is the recommended way to configure the application for staging and production environments.
+
+    To override a setting, create an environment variable with a name derived from the YAML structure, converted to `UPPERCASE_SNAKE_CASE`.
+
+    **Example:**
+    To override the MLflow tracking URI, which is defined in the YAML as:
+    ```yaml
+    mlflow_config:
+      tracking_uri: "http://mlflow:5000"
+    ```
+    You would set the following environment variable:
+    ```bash
+    export MLFLOW_CONFIG_TRACKING_URI="http://your-production-mlflow-server:5000"
+    ```
+
+    This system allows you to keep secrets and environment-specific details out of version control, following security best practices. When running in Docker or a CI/CD pipeline, you can inject these environment variables to configure the application at runtime.
+
 ## How to Use the Pipeline
 
 ### 1. Run Data Analysis (Optional)
