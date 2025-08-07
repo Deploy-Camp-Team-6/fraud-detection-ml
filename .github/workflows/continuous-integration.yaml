@@ -14,6 +14,14 @@ jobs:
   test-and-lint:
     runs-on: ubuntu-latest
 
+    # Environment variables available to all steps in this job.
+    # We set these to ensure tests run with a consistent, isolated configuration.
+    env:
+      MINIO_CREDENTIALS_ENDPOINT_URL: "http://test-minio:9000"
+      MINIO_CREDENTIALS_BUCKET_NAME: "test-fraud-detection"
+      MLFLOW_CONFIG_TRACKING_URI: "http://test-mlflow:5000"
+      MLFLOW_CONFIG_EXPERIMENT_NAME: "Test-CI-Experiment"
+
     steps:
       - name: '✅ Checkout Repository'
         uses: actions/checkout@v4

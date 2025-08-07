@@ -1,23 +1,35 @@
 # config/config.yaml
+
+# Configuration for data paths. These are typically relative to the project root.
 data_source:
   raw_data_dir: "data/raw"
   processed_data_dir: "data/processed"
   raw_data_filename: "fraud_detection.csv"
 
+# --- Environment-Specific Configurations ---
+# The values below are defaults for local development.
+# They can be overridden by setting the corresponding environment variables.
+# For example, to override the MinIO endpoint URL, set the
+# MINIO_CREDENTIALS_ENDPOINT_URL environment variable.
+
 minio_credentials:
+  # Default for local Docker Compose setup. Override for other environments.
   endpoint_url: "http://minio:9000"
   bucket_name: "fraud-detection"
 
 mlflow_config:
+  # Default for local Docker Compose setup. Override for other environments.
   tracking_uri: "http://mlflow:5000"
-  experiment_name: "Fraud-Detection-Experiments" # More generic name
-  registered_model_base_name: "FraudDetector" # Base name for registration
+  experiment_name: "Fraud-Detection-Experiments"
+  registered_model_base_name: "FraudDetector"
 
+# Configuration for artifacts generated during the pipeline.
 artifacts:
   preprocessor_name: "preprocessor.joblib"
   processed_train_name: "train.csv"
   processed_test_name: "test.csv"
 
+# Feature engineering configuration.
 features:
   target_column: "label"
   numerical_cols:
