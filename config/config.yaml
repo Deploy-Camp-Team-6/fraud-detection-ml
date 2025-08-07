@@ -5,7 +5,7 @@ data_source:
   raw_data_filename: "fraud_detection.csv"
 
 minio_credentials:
-  endpoint_url: "http://minio:9000"
+  endpoint_url: "${MINIO_ENDPOINT_URL}"
   bucket_name: "fraud-detection"
 
 mlflow_config:

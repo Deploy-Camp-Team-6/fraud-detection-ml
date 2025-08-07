@@ -1,12 +1,27 @@
 # src/utils.py
+import os
 import yaml
 import logging
+import re
+
+def _replace_env_vars(config_str: str) -> str:
+    """Replaces ${VAR} or $VAR in a string with environment variables."""
+    # Find all ${VAR} style placeholders
+    pattern = re.compile(r'\$\{(\w+)\}')
+    return pattern.sub(lambda m: os.getenv(m.group(1), m.group(0)), config_str)
 
 def load_config(path="config/config.yaml"):
-    """Loads a YAML configuration file."""
+    """
+    Loads a YAML configuration file and replaces environment variable placeholders.
+    """
     try:
         with open(path, 'r') as f:
-            return yaml.safe_load(f)
+            config_str = f.read()
+
+        # Replace environment variables
+        config_str = _replace_env_vars(config_str)
+
+        return yaml.safe_load(config_str)
     except FileNotFoundError:
         logging.error(f"Configuration file not found at {path}")
         raise

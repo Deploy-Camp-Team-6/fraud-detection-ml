@@ -1,8 +1,7 @@
 import logging
-from typing import List, Tuple
+from typing import List
 
 import numpy as np
-import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
@@ -13,14 +12,15 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 class DataTransformation:
     """Handles feature engineering and preprocessing based on configuration."""
 
-    def __init__(self, feature_config: dict):
+    def __init__(self, feature_config: dict, params: dict):
         """
         Initializes the DataTransformation component.
         Args:
-            feature_config (dict): A dictionary containing feature definitions
-                                   (e.g., target, numerical, categorical, drop).
+            feature_config (dict): A dictionary containing feature definitions.
+            params (dict): A dictionary containing parameters for transformations.
         """
         self.config = feature_config
+        self.params = params
         self.preprocessor = self._create_preprocessor()
 
     def _create_preprocessor(self) -> ColumnTransformer:
@@ -31,17 +31,19 @@ class DataTransformation:
         """
         logging.info("Building preprocessing pipeline from configuration.")
 
+        dt_params = self.params['data_transformation']
+
         # Pipeline for numerical features: log transform -> impute -> scale
         # We use np.log1p which is log(1+x) to handle zero values in 'amount'.
         numeric_pipeline = Pipeline(steps=[
             ("log_transformer", FunctionTransformer(np.log1p, validate=True)),
-            ("imputer", SimpleImputer(strategy="median")),
+            ("imputer", SimpleImputer(strategy=dt_params['numeric_imputer_strategy'])),
             ("scaler", StandardScaler())
         ])
 
         # Pipeline for categorical features: impute -> one-hot encode
         categorical_pipeline = Pipeline(steps=[
-            ("imputer", SimpleImputer(strategy="most_frequent")),
+            ("imputer", SimpleImputer(strategy=dt_params['categorical_imputer_strategy'])),
             ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
         ])
 
@@ -55,33 +57,6 @@ class DataTransformation:
         
         logging.info("Preprocessing pipeline built successfully.")
         return preprocessor
-
-    def fit_transform(self, df: pd.DataFrame) -> Tuple[np.ndarray, pd.Series]:
-        """Fits the preprocessor and transforms the data."""
-        logging.info("Fitting preprocessor and transforming data.")
-        
-        # Drop unused columns first
-        df_processed = df.drop(columns=self.config.get('drop_cols', []), errors='ignore')
-
-        X = df_processed.drop(columns=[self.config['target_column']])
-        y = df_processed[self.config['target_column']]
-
-        X_transformed = self.preprocessor.fit_transform(X)
-
-        return X_transformed, y
-
-    def transform(self, df: pd.DataFrame) -> Tuple[np.ndarray, pd.Series]:
-        """Transforms data using the fitted preprocessor."""
-        logging.info("Transforming new data with the existing preprocessor.")
-
-        df_processed = df.drop(columns=self.config.get('drop_cols', []), errors='ignore')
-
-        X = df_processed.drop(columns=[self.config['target_column']])
-        y = df_processed[self.config['target_column']]
-
-        X_transformed = self.preprocessor.transform(X)
-
-        return X_transformed, y
 
     def get_feature_names(self) -> List[str]:
         """Returns the feature names after transformation."""

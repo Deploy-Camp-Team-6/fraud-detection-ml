@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  mlflow-db:
+    image: postgres:13
+    container_name: mlflow-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${MLFLOW_DB_NAME:-mlflow_db}
+      - POSTGRES_USER=${MLFLOW_DB_USER:-mlflow_user}
+      - POSTGRES_PASSWORD=${MLFLOW_DB_PASSWORD:-mlflow_pass}
+    volumes:
+      - mlflow_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MLFLOW_DB_USER:-mlflow_user} -d ${MLFLOW_DB_NAME:-mlflow_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000" # API
+      - "9001:9001" # Console
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY_ID:-minio_access_key}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minio_secret_key}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mlflow-server:
+    image: python:3.10-slim
+    container_name: mlflow-server
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_DB_NAME=${MLFLOW_DB_NAME:-mlflow_db}
+      - MLFLOW_DB_USER=${MLFLOW_DB_USER:-mlflow_user}
+      - MLFLOW_DB_PASSWORD=${MLFLOW_DB_PASSWORD:-mlflow_pass}
+      - MINIO_ACCESS_KEY_ID=${MINIO_ACCESS_KEY_ID:-minio_access_key}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minio_secret_key}
+    depends_on:
+      mlflow-db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    command: >
+      bash -c "
+        pip install mlflow psycopg2-binary boto3 &&
+        # Create MinIO bucket if it doesn't exist
+        pip install mc &&
+        mc alias set minio http://minio:9000 ${MINIO_ACCESS_KEY_ID:-minio_access_key} ${MINIO_SECRET_KEY:-minio_secret_key} &&
+        mc mb minio/fraud-detection || true &&
+        # Start MLflow server
+        mlflow server
+        --backend-store-uri postgresql://${MLFLOW_DB_USER:-mlflow_user}:${MLFLOW_DB_PASSWORD:-mlflow_pass}@mlflow-db:5432/${MLFLOW_DB_NAME:-mlflow_db}
+        --default-artifact-root s3://fraud-detection
+        --host 0.0.0.0
+      "
+
+volumes:
+  mlflow_db_data:
+  minio_data:

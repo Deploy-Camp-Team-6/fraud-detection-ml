@@ -25,6 +25,11 @@ class TrainingPipeline:
         self.config = load_config()
         self.params = load_params()
         self.mlflow_config = self.config['mlflow_config']
+        self.cv_splitter = StratifiedKFold(
+            n_splits=self.params['train']['n_splits'],
+            shuffle=True,
+            random_state=self.params['train']['random_state']
+        )
 
     def run(self):
         """Execute the full training or tuning pipeline."""
@@ -44,7 +49,10 @@ class TrainingPipeline:
                 y = df[self.config['features']['target_column']]
 
                 # --- 2. Create Preprocessing and Model Pipeline ---
-                data_transformer = DataTransformation(feature_config=self.config['features'])
+                data_transformer = DataTransformation(
+                    feature_config=self.config['features'],
+                    params=self.params
+                )
                 preprocessor = data_transformer.preprocessor
 
                 model_trainer = ModelTrainer(model_name=self.model_name, params=self.params)
@@ -80,13 +88,12 @@ class TrainingPipeline:
         logging.info(f"Starting hyperparameter tuning for {self.model_name}...")
         
         param_grid = self.params['tuning'][self.model_name]['param_grid']
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=self.params['train']['random_state'])
         
         # Using F1 score for tuning as it's a good metric for imbalanced datasets
         grid_search = GridSearchCV(
             estimator=pipeline,
             param_grid=param_grid,
-            cv=cv,
+            cv=self.cv_splitter,
             scoring='f1',
             n_jobs=-1,
             verbose=2
@@ -104,9 +111,8 @@ class TrainingPipeline:
 
     def _run_cross_validation(self, pipeline, X, y):
         """Performs cross-validation and logs results."""
-        logging.info(f"Starting 5-fold cross-validation for {self.model_name}...")
+        logging.info(f"Starting {self.params['train']['n_splits']}-fold cross-validation for {self.model_name}...")
 
-        cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=self.params['train']['random_state'])
         scoring = {
             'precision': make_scorer(precision_score, zero_division=0),
             'recall': make_scorer(recall_score),
@@ -114,7 +120,7 @@ class TrainingPipeline:
             'roc_auc': make_scorer(roc_auc_score)
         }
         
-        scores = cross_validate(pipeline, X, y, cv=cv, scoring=scoring, n_jobs=-1)
+        scores = cross_validate(pipeline, X, y, cv=self.cv_splitter, scoring=scoring, n_jobs=-1)
 
         # Log average metrics
         avg_metrics = {f"avg_cv_{metric}": np.mean(values) for metric, values in scores.items()}

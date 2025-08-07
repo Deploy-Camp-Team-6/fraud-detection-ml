@@ -1,46 +1,46 @@
 # Production-Grade Fraud Detection ML Pipeline
 
-This project provides a fully functional, end-to-end machine learning pipeline for fraud detection. It has been refactored from an initial boilerplate to a robust and reproducible system that aligns with MLOps best practices. The pipeline handles data preprocessing, model training, hyperparameter tuning, evaluation, and inference, all within a containerized environment.
+This project provides a fully functional, end-to-end machine learning pipeline for fraud detection. It has been reviewed and enhanced to align with MLOps best practices, making it robust, reproducible, and secure for production deployment.
 
-## Key Features & Fixes Implemented
+## Key Features & Enhancements
 
-- **Dataset Alignment:** The entire pipeline has been aligned to work with the specified dataset (`transaction_id`, `amount`, `merchant_type`, `device_type`, `label`).
-- **Advanced Preprocessing:** Includes a `log_transformation` for the skewed `amount` feature.
-- **Class Imbalance Handling:** All models (`XGBoost`, `LightGBM`, `LogisticRegression`) now correctly handle class imbalance, which is critical for fraud detection.
-- **Robust Evaluation:** Implements **5-fold Stratified Cross-Validation** for reliable performance metrics, instead of a simple train-test split.
-- **Hyperparameter Tuning:** Integrated `GridSearchCV` to find the best model parameters, runnable with a `--tune` flag.
 - **Full MLOps Stack:**
-    - **DVC:** For data versioning (though not fully integrated in this fix).
+    - **DVC:** For data versioning.
     - **MLflow:** For experiment tracking, model logging, and a model registry.
     - **Poetry:** For deterministic dependency management.
-    - **Docker:** For a fully containerized and reproducible environment.
-- **Inference Ready:** Includes a `predict.py` script to load registered models and make predictions on new data.
+    - **Docker & Docker Compose:** For a fully containerized and reproducible environment, including the MLOps stack.
+- **Automated CI/CD Pipelines:**
+    - **Continuous Integration:** On every push/PR, the pipeline automatically runs linters, security scans (`safety`), and unit tests.
+    - **Release-Triggered Training:** Creating a GitHub release (e.g., `xgboost/v1.0`) automatically triggers a production-grade training pipeline that runs hyperparameter tuning and registers the best model to MLflow.
+- **Production-Ready Features:**
+    - **Container Security:** The training container runs as a **non-root user** to enhance security.
+    - **Configuration Management:** All configurations are managed via YAML files (`config.yaml`, `params.yaml`), with sensitive values loaded from environment variables.
+    - **Data Drift Monitoring:** Includes a script (`scripts/monitor_drift.py`) to detect concept drift between datasets.
+- **Advanced ML Features:**
+    - **Class Imbalance Handling:** All models correctly handle class imbalance.
+    - **Robust Evaluation:** Implements **5-fold Stratified Cross-Validation** and `GridSearchCV` for hyperparameter tuning.
+    - **Inference Ready:** Includes a `predict.py` script to make predictions with registered models.
 
 ## Project Structure
-
 ```
 .
 ├── Dockerfile
+├── docker-compose.yml
 ├── README.md
-├── analysis_plots/
 ├── config
 │   └── config.yaml
 ├── data
 │   └── raw
-│       └── fraud_detection.csv
+│       └── fraud_detection.csv.dvc
 ├── notebooks
 │   └── run_eda.py
 ├── params.yaml
 ├── pyproject.toml
+├── scripts
+│   ├── entrypoint.sh
+│   └── monitor_drift.py
 └── src
-    ├── __init__.py
-    ├── components
-    │   ├── data_transformation.py
-    │   └── model_trainer.py
-    ├── pipeline
-    │   └── training_pipeline.py
-    ├── predict.py
-    └── utils.py
+    ├── ...
 ```
 
 ## Getting Started
@@ -59,88 +59,73 @@ This project provides a fully functional, end-to-end machine learning pipeline f
     cd <repository_name>
     ```
 
-2.  **Install Dependencies:**
-    Use Poetry to install the dependencies defined in `pyproject.toml`.
+2.  **Set up MLOps Services (MLflow & MinIO):**
+    This project now includes a `docker-compose.yml` file to easily set up the required services.
+
+    a. **Create your environment file:**
+       Copy the example environment file:
+       ```bash
+       cp .env.example .env
+       ```
+       You can customize the credentials in `.env` if needed.
+
+    b. **Launch the services:**
+       ```bash
+       docker-compose up -d
+       ```
+       This will start the MLflow server (http://localhost:5000) and MinIO console (http://localhost:9001).
+
+3.  **Install Local Dependencies:**
+    Use Poetry to install the project's Python dependencies.
     ```bash
     poetry install
     ```
 
-3.  **Set up MLOps Services (MLflow & MinIO):**
-    The `docker-compose.yml` file required for this is not provided in the boilerplate, but you would typically start MLflow and a MinIO S3 storage backend this way. Assuming you have a `docker-compose.yml` for these services:
-    ```bash
-    # This is a conceptual step.
-    # docker-compose up -d mlflow-db minio mlflow-server
-    ```
-    For this project, ensure your MLflow tracking server is running and accessible. The default URI is `http://mlflow:5000`, which implies it's running in a Docker network.
-
 ## How to Use the Pipeline
 
-### 1. Run Data Analysis (Optional)
+### 1. Run Model Training (via Docker)
 
-To understand the dataset, you can run the EDA script. This will generate plots in the `analysis_plots/` directory.
-
-```bash
-poetry run python notebooks/run_eda.py
-```
-
-### 2. Run Model Training & Evaluation
-
-The main training pipeline is executed via `src/pipeline/training_pipeline.py`.
-
-**To run with 5-fold Cross-Validation:**
-
-This command trains the specified model, evaluates it using 5-fold stratified cross-validation, logs the average metrics to MLflow, and then trains and registers a final model on the full dataset.
-
-```bash
-poetry run python src/pipeline/training_pipeline.py --model xgboost
-# Or for other models:
-# poetry run python src/pipeline/training_pipeline.py --model lightgbm
-# poetry run python src/pipeline/training_pipeline.py --model logistic_regression
-```
-
-**To run with Hyperparameter Tuning:**
-
-Add the `--tune` flag to perform `GridSearchCV`. This will find the best hyperparameters, log them, and register the best-performing model pipeline to MLflow.
-
-```bash
-poetry run python src/pipeline/training_pipeline.py --model xgboost --tune
-```
-
-### 3. Make Predictions with a Trained Model
-
-Once a model is trained and registered (e.g., in the 'Staging' phase), you can use `src/predict.py` to make predictions on new data.
-
-1.  **Create a sample CSV file** for prediction (e.g., `sample_data.csv`):
-    ```csv
-    transaction_id,amount,merchant_type,device_type
-    1001,250.75,travel,desktop
-    1002,50.00,groceries,mobile
-    ```
-
-2.  **Run the prediction script:**
-    ```bash
-    poetry run python src/predict.py \
-      --model xgboost \
-      --stage Staging \
-      --input sample_data.csv \
-      --output predictions.csv
-    ```
-    This will load the 'Staging' version of the `FraudDetector-xgboost` model, make predictions on `sample_data.csv`, and save the results to `predictions.csv`.
-
-## Running with Docker
-
-The provided `Dockerfile` allows you to build a container for the project.
+The training pipeline is designed to be run inside its Docker container to ensure a consistent environment.
 
 1.  **Build the Docker image:**
     ```bash
     docker build -t fraud-detection-pipeline .
     ```
 
-2.  **Run the training pipeline inside the container:**
-    You need to ensure the container can connect to your MLflow server. If MLflow is running in a Docker network named `my_network`, you can do:
+2.  **Run the training pipeline:**
+    The container's `entrypoint.sh` script will automatically pull data from DVC before running the training script.
     ```bash
-    docker run --rm --network=my_network \
+    # You must have a running MLflow server (see Docker Compose setup)
+    # The default MLFLOW_TRACKING_URI is http://mlflow:5000
+    # To connect to a server running on the host from the container, use --network="host"
+
+    docker run --rm --network="host" \
+      -e MLFLOW_TRACKING_URI="http://localhost:5000" \
+      -e MINIO_ENDPOINT_URL="http://localhost:9000" \
+      -e AWS_ACCESS_KEY_ID=$(grep MINIO_ACCESS_KEY_ID .env | cut -d '=' -f2) \
+      -e AWS_SECRET_ACCESS_KEY=$(grep MINIO_SECRET_KEY .env | cut -d '=' -f2) \
       fraud-detection-pipeline \
       --model xgboost --tune
     ```
-    The `ENTRYPOINT` is set to `python src/pipeline/training_pipeline.py`, so you only need to pass the arguments.
+
+### 2. Make Predictions with a Trained Model
+
+Use `src/predict.py` to make predictions with a model from the MLflow Model Registry.
+```bash
+# Example: Make predictions with the 'Staging' version of the xgboost model
+poetry run python src/predict.py \
+  --model xgboost \
+  --stage Staging \
+  --input "path/to/your/data.csv" \
+  --output "predictions.csv"
+```
+
+### 3. Monitor for Data Drift
+
+You can check for data drift between a reference dataset (e.g., the training data) and a new dataset.
+```bash
+poetry run python scripts/monitor_drift.py \
+  --reference_data "data/raw/fraud_detection.csv" \
+  --current_data "path/to/new/data.csv"
+```
+This will output a report indicating whether significant drift was detected for any features.
