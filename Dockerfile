@@ -22,10 +22,13 @@ RUN pip install poetry
 # Copy only the dependency definition files.
 COPY pyproject.toml poetry.lock ./
 
+# Configure Poetry to create the virtual environment in the project's root.
+RUN poetry config virtualenvs.in-project true --local
+
 # Install project dependencies using Poetry.
 # --no-root: Don't install the project package itself yet.
 # --no-dev: Exclude development dependencies (e.g., testing libraries).
-RUN poetry install --no-root --no-dev
+RUN poetry install --no-root --without dev
 
 # --- Final Stage ---
 # This stage builds the final, runnable image.
