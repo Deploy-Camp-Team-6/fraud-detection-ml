@@ -4,6 +4,9 @@
 # Use a slim Python base image for a smaller final image size.
 FROM python:3.10-slim AS base
 
+# Install essential libraries for LightGBM.
+RUN apt-get update && apt-get install -y --no-install-recommends libgomp1
+
 # Set environment variables to prevent Python from writing .pyc files and buffering output.
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
