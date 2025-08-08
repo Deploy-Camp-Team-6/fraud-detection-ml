@@ -7,10 +7,14 @@ import numpy as np
 import mlflow
 import mlflow.sklearn
 import boto3
+import json
+from pathlib import Path
+import matplotlib.pyplot as plt
+import seaborn as sns
 from botocore.exceptions import ClientError
-from sklearn.model_selection import StratifiedKFold, GridSearchCV, cross_validate
+from sklearn.model_selection import StratifiedKFold, GridSearchCV, cross_validate, cross_val_predict
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import make_scorer, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.metrics import make_scorer, f1_score, precision_score, recall_score, roc_auc_score, confusion_matrix
 
 # Add project root to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -32,6 +36,7 @@ class TrainingPipeline:
             shuffle=True,
             random_state=self.params['train']['random_state']
         )
+        self.project_root = Path(__file__).resolve().parents[2]
 
     def _ensure_mlflow_bucket_exists(self):
         """Checks if the MLflow artifact bucket exists in MinIO/S3 and creates it if not."""
@@ -51,6 +56,7 @@ class TrainingPipeline:
             's3',
             endpoint_url=endpoint_url,
             aws_access_key_id=access_key,
+            aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
             region_name='us-east-1' # Default region, can be anything for MinIO
         )
@@ -59,7 +65,6 @@ class TrainingPipeline:
             s3_client.head_bucket(Bucket=bucket_name)
             logging.info(f"S3 Bucket '{bucket_name}' already exists.")
         except ClientError as e:
-            # If the bucket does not exist, create it
             if e.response['Error']['Code'] == '404' or 'NoSuchBucket' in str(e):
                 logging.info(f"S3 Bucket '{bucket_name}' not found. Attempting to create it.")
                 try:
@@ -72,58 +77,81 @@ class TrainingPipeline:
                 logging.error(f"Fatal: An unexpected error occurred while checking for bucket '{bucket_name}'. Error: {e}")
                 raise
 
+    def _initialize_mlflow(self):
+        """Sets up the MLflow tracking URI, experiment, and base tags."""
+        run_name = f"{self.model_name}-{'tuning' if self.tune else 'cv-evaluation'}"
+
+        self._ensure_mlflow_bucket_exists()
+        mlflow.set_tracking_uri(self.mlflow_config['tracking_uri'])
+        mlflow.set_experiment(self.mlflow_config['experiment_name'])
+
+        # Start the parent run
+        run = mlflow.start_run(run_name=run_name)
+        logging.info(f"Started MLflow Run '{run_name}' with ID: {run.info.run_id}")
+
+        # Set common tags
+        mlflow.set_tag("model_name", self.model_name)
+        mlflow.set_tag("run_type", "Tuning" if self.tune else "Cross-Validation")
+
+        # Log configuration and parameters
+        self._log_config_and_params()
+
+        return run
+
+    def _log_config_and_params(self):
+        """Logs key-value parameters and configuration files as artifacts."""
+        logging.info("Logging configuration and parameters to MLflow.")
+        # Log all model parameters
+        mlflow.log_params(self.params[self.model_name])
+        # Log training parameters
+        mlflow.log_params(self.params['train'])
+
+        # Log config and params files as artifacts
+        mlflow.log_artifact(self.project_root / "config/config.yaml", "config")
+        mlflow.log_artifact(self.project_root / "params.yaml", "config")
+
     def run(self):
         """Execute the full training or tuning pipeline."""
-        run_name = f"{self.model_name}-{'tuning' if self.tune else 'cv-evaluation'}"
         try:
-            # First, ensure the artifact bucket exists.
-            self._ensure_mlflow_bucket_exists()
+            self._initialize_mlflow()
 
-            mlflow.set_tracking_uri(self.mlflow_config['tracking_uri'])
-            mlflow.set_experiment(self.mlflow_config['experiment_name'])
-            
-            with mlflow.start_run(run_name=run_name) as run:
-                logging.info(f"Started MLflow Run '{run_name}' with ID: {run.info.run_id}")
-                mlflow.set_tag("model_name", self.model_name)
-                mlflow.set_tag("tuning_run", str(self.tune))
+            # --- 1. Load Data ---
+            df = self._load_data()
+            X = df.drop(columns=[self.config['features']['target_column']])
+            y = df[self.config['features']['target_column']]
 
-                # --- 1. Load Data ---
-                df = self._load_data()
-                X = df.drop(columns=[self.config['features']['target_column']])
-                y = df[self.config['features']['target_column']]
+            # --- 2. Create Preprocessing and Model Pipeline ---
+            data_transformer = DataTransformation(
+                feature_config=self.config['features'],
+                params=self.params
+            )
+            preprocessor = data_transformer.preprocessor
 
-                # --- 2. Create Preprocessing and Model Pipeline ---
-                data_transformer = DataTransformation(
-                    feature_config=self.config['features'],
-                    params=self.params
-                )
-                preprocessor = data_transformer.preprocessor
+            model_trainer = ModelTrainer(model_name=self.model_name, params=self.params)
+            model = model_trainer._get_model(y_train=y) # Pass y for imbalance calculation
 
-                model_trainer = ModelTrainer(model_name=self.model_name, params=self.params)
-                # Pass y for imbalance calculation
-                model = model_trainer._get_model(y_train=y)
+            full_pipeline = Pipeline([
+                ("preprocessor", preprocessor),
+                ("classifier", model)
+            ])
 
-                full_pipeline = Pipeline([
-                    ("preprocessor", preprocessor),
-                    ("classifier", model)
-                ])
-
-                # --- 3. Run Tuning or Cross-Validation ---
-                if self.tune:
-                    self._run_tuning(full_pipeline, X, y)
-                else:
-                    self._run_cross_validation(full_pipeline, X, y)
+            # --- 3. Run Tuning or Cross-Validation ---
+            if self.tune:
+                self._run_tuning(full_pipeline, X, y)
+            else:
+                self._run_cross_validation(full_pipeline, X, y)
 
         except Exception as e:
             logging.error(f"An error occurred during the training pipeline: {e}", exc_info=True)
             raise
+        finally:
+            # Ensure the MLflow run is always ended
+            mlflow.end_run()
+            logging.info("MLflow run finished.")
 
     def _load_data(self):
         """Loads data from the source specified in config."""
-        raw_data_path = os.path.join(
-            self.config['data_source']['raw_data_dir'], 
-            self.config['data_source']['raw_data_filename']
-        )
+        raw_data_path = self.project_root / self.config['data_source']['raw_data_dir'] / self.config['data_source']['raw_data_filename']
         logging.info(f"Loading raw data from {raw_data_path}")
         return pd.read_csv(raw_data_path)
 
@@ -133,28 +161,37 @@ class TrainingPipeline:
         
         param_grid = self.params['tuning'][self.model_name]['param_grid']
         
-        # Using F1 score for tuning as it's a good metric for imbalanced datasets
+        # Log the parameter grid as a JSON artifact
+        param_grid_path = self.project_root / "param_grid.json"
+        with open(param_grid_path, 'w') as f:
+            json.dump(param_grid, f, indent=4)
+        mlflow.log_artifact(param_grid_path, "tuning")
+        param_grid_path.unlink() # Clean up the file
+
         grid_search = GridSearchCV(
-            estimator=pipeline,
-            param_grid=param_grid,
-            cv=self.cv_splitter,
-            scoring='f1',
-            n_jobs=-1,
-            verbose=2
+            estimator=pipeline, param_grid=param_grid,
+            cv=self.cv_splitter, scoring='f1', n_jobs=-1, verbose=2
         )
         grid_search.fit(X, y)
 
         logging.info(f"Best parameters found: {grid_search.best_params_}")
         logging.info(f"Best F1 score from tuning: {grid_search.best_score_:.4f}")
 
-        mlflow.log_params(grid_search.best_params_)
+        mlflow.log_params({f"best_{k}": v for k, v in grid_search.best_params_.items()})
         mlflow.log_metric("best_tuning_f1_score", grid_search.best_score_)
 
-        # Log the best model found during the search
-        self._log_and_register_model(grid_search.best_estimator_, X.head(5))
+        # Log CV results as a CSV artifact
+        cv_results_df = pd.DataFrame(grid_search.cv_results_)
+        cv_results_path = self.project_root / "tuning_cv_results.csv"
+        cv_results_df.to_csv(cv_results_path, index=False)
+        mlflow.log_artifact(cv_results_path, "tuning")
+        cv_results_path.unlink()
+
+        # Log the best model found
+        self._log_and_register_model(grid_search.best_estimator_, X, y)
 
     def _run_cross_validation(self, pipeline, X, y):
-        """Performs cross-validation and logs results."""
+        """Performs cross-validation with nested runs for each fold."""
         logging.info(f"Starting {self.params['train']['n_splits']}-fold cross-validation for {self.model_name}...")
 
         scoring = {
@@ -164,37 +201,114 @@ class TrainingPipeline:
             'roc_auc': make_scorer(roc_auc_score)
         }
         
-        scores = cross_validate(pipeline, X, y, cv=self.cv_splitter, scoring=scoring, n_jobs=-1)
+        fold_scores = []
+        for i, (train_index, test_index) in enumerate(self.cv_splitter.split(X, y)):
+            with mlflow.start_run(nested=True, run_name=f"fold-{i+1}") as nested_run:
+                logging.info(f"--- Starting Fold {i+1}/{self.params['train']['n_splits']} ---")
+                X_train, X_test = X.iloc[train_index], X.iloc[test_index]
+                y_train, y_test = y.iloc[train_index], y.iloc[test_index]
 
-        # Log average metrics
-        avg_metrics = {f"avg_cv_{metric}": np.mean(values) for metric, values in scores.items()}
-        std_metrics = {f"std_cv_{metric}": np.std(values) for metric, values in scores.items()}
+                pipeline.fit(X_train, y_train)
+                preds = pipeline.predict(X_test)
+
+                fold_metrics = {
+                    'precision': precision_score(y_test, preds, zero_division=0),
+                    'recall': recall_score(y_test, preds),
+                    'f1': f1_score(y_test, preds),
+                    'roc_auc': roc_auc_score(y_test, pipeline.predict_proba(X_test)[:, 1])
+                }
+
+                mlflow.log_metrics(fold_metrics)
+                fold_scores.append(fold_metrics)
+                logging.info(f"Fold {i+1} Metrics: {fold_metrics}")
+
+        # Aggregate and log metrics to the parent run
+        avg_metrics = {f"avg_cv_{metric}": np.mean([s[metric] for s in fold_scores]) for metric in scoring}
+        std_metrics = {f"std_cv_{metric}": np.std([s[metric] for s in fold_scores]) for metric in scoring}
 
         mlflow.log_metrics(avg_metrics)
         mlflow.log_metrics(std_metrics)
-        
-        logging.info("Cross-validation metrics:")
-        for metric, value in avg_metrics.items():
-            logging.info(f"  {metric}: {value:.4f}")
+        logging.info(f"Average CV Metrics: {avg_metrics}")
 
         # Train final model on all data and log it
         logging.info("Training final model on all data...")
         pipeline.fit(X, y)
-        self._log_and_register_model(pipeline, X.head(5))
+        self._log_and_register_model(pipeline, X, y)
 
-    def _log_and_register_model(self, model, input_example):
-        """Logs and registers the model in the MLflow Model Registry."""
-        logging.info("Logging and registering the model using mlflow.sklearn.")
+    def _log_and_register_model(self, model, X, y):
+        """Logs artifacts, plots, and registers the model."""
+        logging.info("Logging model, artifacts, and registering with MLflow.")
         
+        # --- Log plots ---
+        # Use out-of-fold predictions for an unbiased confusion matrix
+        y_pred_cv = cross_val_predict(model, X, y, cv=self.cv_splitter, n_jobs=-1)
+        self._log_confusion_matrix(y, y_pred_cv)
+
+        # Log feature importance if available
+        self._log_feature_importance(model)
+
+        # --- Log and Register Model ---
         registered_model_name = f"{self.mlflow_config['registered_model_base_name']}-{self.model_name}"
-        
         mlflow.sklearn.log_model(
             sk_model=model,
             artifact_path="model",
             registered_model_name=registered_model_name,
-            input_example=input_example
+            input_example=X.head(5)
         )
         logging.info(f"Model registered as '{registered_model_name}'")
+
+    def _log_confusion_matrix(self, y_true, y_pred):
+        """Creates, logs, and saves a confusion matrix plot."""
+        try:
+            fig, ax = plt.subplots()
+            cm = confusion_matrix(y_true, y_pred)
+            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', ax=ax)
+            ax.set_title('Confusion Matrix')
+            ax.set_xlabel('Predicted Label')
+            ax.set_ylabel('True Label')
+
+            # Log plot to MLflow
+            mlflow.log_figure(fig, "artifacts/confusion_matrix.png")
+            plt.close(fig)
+            logging.info("Confusion matrix logged to MLflow.")
+        except Exception as e:
+            logging.warning(f"Could not generate or log confusion matrix: {e}")
+
+    def _log_feature_importance(self, pipeline):
+        """Extracts and logs feature importance plot if the model supports it."""
+        if self.model_name not in ["xgboost", "lightgbm"]:
+            logging.info(f"Feature importance plot not applicable for model '{self.model_name}'.")
+            return
+
+        try:
+            # Extract the classifier and feature names from the pipeline
+            classifier = pipeline.named_steps['classifier']
+            preprocessor = pipeline.named_steps['preprocessor']
+
+            # Get feature names after one-hot encoding
+            cat_features = preprocessor.named_transformers_['cat'].get_feature_names_out(
+                self.config['features']['categorical_cols']
+            )
+            num_features = self.config['features']['numerical_cols']
+            feature_names = np.concatenate([num_features, cat_features])
+
+            importances = classifier.feature_importances_
+
+            importance_df = pd.DataFrame({
+                'feature': feature_names,
+                'importance': importances
+            }).sort_values(by='importance', ascending=False).head(20) # Top 20
+
+            fig, ax = plt.subplots(figsize=(10, 8))
+            sns.barplot(x='importance', y='feature', data=importance_df, ax=ax)
+            ax.set_title(f"Feature Importance ({self.model_name})")
+            plt.tight_layout()
+
+            mlflow.log_figure(fig, "artifacts/feature_importance.png")
+            plt.close(fig)
+            logging.info("Feature importance plot logged to MLflow.")
+        except Exception as e:
+            logging.warning(f"Could not generate or log feature importance plot: {e}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the ML training pipeline.")
