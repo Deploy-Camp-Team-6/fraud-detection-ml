@@ -54,3 +54,19 @@ tuning:
       classifier__n_estimators: [50, 100]
       classifier__max_depth: [3, 5]
       classifier__learning_rate: [0.05, 0.1]
+
+# --- Best Hyperparameters (to be updated after tuning) ---
+best_params:
+  xgboost:
+    n_estimators: 150
+    max_depth: 5
+    learning_rate: 0.1
+
+  lightgbm:
+    n_estimators: 200
+    learning_rate: 0.05
+    num_leaves: 31
+
+  logistic_regression:
+    solver: 'liblinear'
+    C: 1.0

@@ -46,7 +46,7 @@ jobs:
             -e AWS_SECRET_ACCESS_KEY \
             -e MLFLOW_S3_ENDPOINT_URL \
             fraud-detection-pipeline \
-            --model "$MODEL_NAME" --tune
+            --model "$MODEL_NAME" --use-best-params
           
       - name: '🎉 Training Complete'
         run: echo "Model training and registration complete. Check your MLflow UI."

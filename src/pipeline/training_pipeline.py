@@ -25,9 +25,10 @@ from src.utils import load_config, load_params
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class TrainingPipeline:
-    def __init__(self, model_name: str, tune: bool):
+    def __init__(self, model_name: str, tune: bool, use_best_params: bool = False):
         self.model_name = model_name
         self.tune = tune
+        self.use_best_params = use_best_params
         self.config = load_config()
         self.params = load_params()
         self.mlflow_config = self.config['mlflow_config']
@@ -76,9 +77,16 @@ class TrainingPipeline:
                 logging.error(f"Fatal: An unexpected error occurred while checking for bucket '{bucket_name}'. Error: {e}")
                 raise
 
-    def _initialize_mlflow(self):
+    def _initialize_mlflow(self, params_to_log: dict):
         """Sets up the MLflow tracking URI, experiment, and base tags."""
-        run_name = f"{self.model_name}-{'tuning' if self.tune else 'cv-evaluation'}"
+        if self.tune:
+            run_type = "Tuning"
+        elif self.use_best_params:
+            run_type = "Best-Params-CV"
+        else:
+            run_type = "Default-Params-CV"
+
+        run_name = f"{self.model_name}-{run_type.lower()}"
 
         self._ensure_mlflow_bucket_exists()
         mlflow.set_tracking_uri(self.mlflow_config['tracking_uri'])
@@ -90,20 +98,20 @@ class TrainingPipeline:
 
         # Set common tags
         mlflow.set_tag("model_name", self.model_name)
-        mlflow.set_tag("run_type", "Tuning" if self.tune else "Cross-Validation")
+        mlflow.set_tag("run_type", run_type)
 
         # Log configuration and parameters
-        self._log_config_and_params()
+        self._log_config_and_params(params_to_log)
 
         return run
 
-    def _log_config_and_params(self):
+    def _log_config_and_params(self, params_to_log: dict):
         """Logs key-value parameters and configuration files as artifacts."""
         logging.info("Logging configuration and parameters to MLflow.")
-        # Log all model parameters
-        mlflow.log_params(self.params[self.model_name])
+        # Log all model parameters from the provided dict
+        mlflow.log_params(params_to_log[self.model_name])
         # Log training parameters
-        mlflow.log_params(self.params['train'])
+        mlflow.log_params(params_to_log['train'])
 
         # Log config and params files as artifacts
         mlflow.log_artifact(self.project_root / "config/config.yaml", "config")
@@ -112,7 +120,21 @@ class TrainingPipeline:
     def run(self):
         """Execute the full training or tuning pipeline."""
         try:
-            self._initialize_mlflow()
+            # Make a deep copy of params to modify for this specific run
+            import copy
+            params_for_run = copy.deepcopy(self.params)
+
+            # If using best_params, overwrite the model's params with the best ones
+            if self.use_best_params:
+                if 'best_params' not in self.params or self.model_name not in self.params['best_params']:
+                    logging.error(f"Cannot use --use-best-params because 'best_params' section or model '{self.model_name}' not found in params.yaml.")
+                    sys.exit(1)
+
+                logging.info(f"Using 'best_params' for model '{self.model_name}'.")
+                best_model_params = self.params['best_params'][self.model_name]
+                params_for_run[self.model_name].update(best_model_params)
+
+            self._initialize_mlflow(params_to_log=params_for_run)
 
             # --- 1. Load Data ---
             df = self._load_data()
@@ -122,11 +144,11 @@ class TrainingPipeline:
             # --- 2. Create Preprocessing and Model Pipeline ---
             data_transformer = DataTransformation(
                 feature_config=self.config['features'],
-                params=self.params
+                params=params_for_run
             )
             preprocessor = data_transformer.preprocessor
 
-            model_trainer = ModelTrainer(model_name=self.model_name, params=self.params)
+            model_trainer = ModelTrainer(model_name=self.model_name, params=params_for_run)
             model = model_trainer._get_model(y_train=y) # Pass y for imbalance calculation
 
             full_pipeline = Pipeline([
@@ -323,7 +345,21 @@ if __name__ == "__main__":
         action="store_true",
         help="If set, run hyperparameter tuning instead of single cross-validation."
     )
+    parser.add_argument(
+        "--use-best-params",
+        action="store_true",
+        help="If set, use the 'best_params' section from params.yaml for training."
+    )
     args = parser.parse_args()
 
-    pipeline = TrainingPipeline(model_name=args.model, tune=args.tune)
+    # Validate arguments
+    if args.tune and args.use_best_params:
+        logging.error("--tune and --use-best-params cannot be used at the same time.")
+        sys.exit(1)
+
+    pipeline = TrainingPipeline(
+        model_name=args.model,
+        tune=args.tune,
+        use_best_params=args.use_best_params
+    )
     pipeline.run()
