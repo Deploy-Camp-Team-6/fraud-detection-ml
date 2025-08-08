@@ -9,7 +9,7 @@ minio_credentials:
   bucket_name: "fraud-detection"
 
 mlflow_config:
-  tracking_uri: "http://mlflow:5000"
+  tracking_uri: "${MLFLOW_TRACKING_URI}"
   experiment_name: "Fraud-Detection-Experiments" # More generic name
   registered_model_base_name: "FraudDetector" # Base name for registration
 
