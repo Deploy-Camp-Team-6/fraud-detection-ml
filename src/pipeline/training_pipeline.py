@@ -12,7 +12,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
 from botocore.exceptions import ClientError
-from sklearn.model_selection import StratifiedKFold, GridSearchCV, cross_validate, cross_val_predict
+from sklearn.model_selection import StratifiedKFold, GridSearchCV, cross_val_predict
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import make_scorer, f1_score, precision_score, recall_score, roc_auc_score, confusion_matrix
 
@@ -55,7 +55,6 @@ class TrainingPipeline:
         s3_client = boto3.client(
             's3',
             endpoint_url=endpoint_url,
-            aws_access_key_id=access_key,
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
             region_name='us-east-1' # Default region, can be anything for MinIO
@@ -203,7 +202,7 @@ class TrainingPipeline:
         
         fold_scores = []
         for i, (train_index, test_index) in enumerate(self.cv_splitter.split(X, y)):
-            with mlflow.start_run(nested=True, run_name=f"fold-{i+1}") as nested_run:
+            with mlflow.start_run(nested=True, run_name=f"fold-{i+1}"):
                 logging.info(f"--- Starting Fold {i+1}/{self.params['train']['n_splits']} ---")
                 X_train, X_test = X.iloc[train_index], X.iloc[test_index]
                 y_train, y_test = y.iloc[train_index], y.iloc[test_index]
