@@ -63,7 +63,7 @@ USER appuser
 # ENV MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
 
 # Copy the entrypoint script and make it executable
-COPY scripts/entrypoint.sh /app/scripts/entrypoint.sh
+COPY --chown=appuser:appgroup scripts/entrypoint.sh /app/scripts/entrypoint.sh
 RUN chmod +x /app/scripts/entrypoint.sh
 
 # Define the entrypoint for the container.
