@@ -58,11 +58,11 @@ services:
         # Create MinIO bucket if it doesn't exist
         pip install mc &&
         mc alias set minio http://minio:9000 ${MINIO_ACCESS_KEY_ID:-minio_access_key} ${MINIO_SECRET_KEY:-minio_secret_key} &&
-        mc mb minio/fraud-detection || true &&
+        mc mb minio/mlflow || true &&
         # Start MLflow server
         mlflow server
         --backend-store-uri postgresql://${MLFLOW_DB_USER:-mlflow_user}:${MLFLOW_DB_PASSWORD:-mlflow_pass}@mlflow-db:5432/${MLFLOW_DB_NAME:-mlflow_db}
-        --default-artifact-root s3://fraud-detection
+        --default-artifact-root s3://mlflow
         --host 0.0.0.0
       "
 

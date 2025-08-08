@@ -6,6 +6,8 @@ import pandas as pd
 import numpy as np
 import mlflow
 import mlflow.sklearn
+import boto3
+from botocore.exceptions import ClientError
 from sklearn.model_selection import StratifiedKFold, GridSearchCV, cross_validate
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import make_scorer, f1_score, precision_score, recall_score, roc_auc_score
@@ -31,10 +33,52 @@ class TrainingPipeline:
             random_state=self.params['train']['random_state']
         )
 
+    def _ensure_mlflow_bucket_exists(self):
+        """Checks if the MLflow artifact bucket exists in MinIO/S3 and creates it if not."""
+        endpoint_url = os.getenv("MLFLOW_S3_ENDPOINT_URL")
+        access_key = os.getenv("AWS_ACCESS_KEY_ID")
+        secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+        bucket_name = self.config['minio_credentials']['bucket_name']
+
+        if not all([endpoint_url, access_key, secret_key, bucket_name]):
+            logging.warning(
+                "One or more S3 environment variables are not set. Skipping bucket creation check. "
+                "This is expected for local runs without MinIO."
+            )
+            return
+
+        s3_client = boto3.client(
+            's3',
+            endpoint_url=endpoint_url,
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key,
+            region_name='us-east-1' # Default region, can be anything for MinIO
+        )
+
+        try:
+            s3_client.head_bucket(Bucket=bucket_name)
+            logging.info(f"S3 Bucket '{bucket_name}' already exists.")
+        except ClientError as e:
+            # If the bucket does not exist, create it
+            if e.response['Error']['Code'] == '404' or 'NoSuchBucket' in str(e):
+                logging.info(f"S3 Bucket '{bucket_name}' not found. Attempting to create it.")
+                try:
+                    s3_client.create_bucket(Bucket=bucket_name)
+                    logging.info(f"S3 Bucket '{bucket_name}' created successfully.")
+                except ClientError as create_error:
+                    logging.error(f"Fatal: Failed to create S3 bucket '{bucket_name}'. Error: {create_error}")
+                    raise
+            else:
+                logging.error(f"Fatal: An unexpected error occurred while checking for bucket '{bucket_name}'. Error: {e}")
+                raise
+
     def run(self):
         """Execute the full training or tuning pipeline."""
         run_name = f"{self.model_name}-{'tuning' if self.tune else 'cv-evaluation'}"
         try:
+            # First, ensure the artifact bucket exists.
+            self._ensure_mlflow_bucket_exists()
+
             mlflow.set_tracking_uri(self.mlflow_config['tracking_uri'])
             mlflow.set_experiment(self.mlflow_config['experiment_name'])
             
