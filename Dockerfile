@@ -25,7 +25,7 @@ COPY pyproject.toml poetry.lock ./
 # Install project dependencies using Poetry.
 # --no-root: Don't install the project package itself yet.
 # --no-dev: Exclude development dependencies (e.g., testing libraries).
-RUN poetry install --no-root --no-dev
+RUN poetry install --no-root --without dev
 
 # --- Final Stage ---
 # This stage builds the final, runnable image.
