@@ -3,6 +3,9 @@ import os
 import yaml
 import logging
 import re
+from typing import List, Tuple
+
+import pandas as pd
 from dotenv import load_dotenv
 
 def _replace_env_vars(config_str: str) -> str:
@@ -58,3 +61,17 @@ def load_params(path="params.yaml"):
     except Exception as e:
         logging.error(f"Error loading parameters: {e}")
         raise
+
+
+def drop_constant_columns(df: pd.DataFrame, columns: List[str]) -> Tuple[pd.DataFrame, List[str]]:
+    """Removes columns with zero variance from a DataFrame.
+
+    Args:
+        df: Input DataFrame.
+        columns: Columns to check for constancy.
+
+    Returns:
+        A tuple of the cleaned DataFrame and a list of columns that were dropped.
+    """
+    dropped = [col for col in columns if col in df.columns and df[col].nunique(dropna=False) <= 1]
+    return df.drop(columns=dropped), dropped

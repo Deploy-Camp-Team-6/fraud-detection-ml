@@ -22,7 +22,7 @@ from sklearn.metrics import make_scorer, f1_score, precision_score, recall_score
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from src.components.data_transformation import DataTransformation
 from src.components.model_trainer import ModelTrainer
-from src.utils import load_config, load_params
+from src.utils import load_config, load_params, drop_constant_columns
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -140,6 +140,12 @@ class TrainingPipeline:
 
             # --- 1. Load Data ---
             df = self._load_data()
+            feature_cols = self.config['features']['numerical_cols'] + self.config['features']['categorical_cols']
+            df, dropped = drop_constant_columns(df, feature_cols)
+            if dropped:
+                logging.warning(f"Dropping constant features: {dropped}")
+                self.config['features']['numerical_cols'] = [c for c in self.config['features']['numerical_cols'] if c not in dropped]
+                self.config['features']['categorical_cols'] = [c for c in self.config['features']['categorical_cols'] if c not in dropped]
             X = df.drop(columns=[self.config['features']['target_column']])
             y = df[self.config['features']['target_column']]
 
