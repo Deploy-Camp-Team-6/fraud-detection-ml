@@ -6,10 +6,23 @@ import re
 from dotenv import load_dotenv
 
 def _replace_env_vars(config_str: str) -> str:
-    """Replaces ${VAR} or $VAR in a string with environment variables."""
-    # Find all ${VAR} style placeholders
-    pattern = re.compile(r'\$\{(\w+)\}')
-    return pattern.sub(lambda m: os.getenv(m.group(1), m.group(0)), config_str)
+    """Replaces ``${VAR}`` or ``$VAR`` in a string with environment variables.
+
+    The previous implementation only supported the ``${VAR}`` style. However, the
+    configuration files in this project may use either form, so we need to
+    capture both.  Any placeholder without a corresponding environment variable
+    is left unchanged.
+    """
+
+    # Match either ${VAR} or $VAR. ``group(1)`` contains the name for ${VAR}
+    # matches while ``group(2)`` contains the name for $VAR matches.
+    pattern = re.compile(r"\$(?:\{(\w+)\}|(\w+))")
+
+    def replace(match: re.Match) -> str:
+        var_name = match.group(1) or match.group(2)
+        return os.getenv(var_name, match.group(0))
+
+    return pattern.sub(replace, config_str)
 
 def load_config(path="config/config.yaml"):
     """
