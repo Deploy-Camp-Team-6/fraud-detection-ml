@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import pytest
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
@@ -79,10 +80,7 @@ def test_transformation_on_sample_data():
     X_sample = sample_data.drop(columns=['label', 'transaction_id'])
 
     # Act
-    try:
-        X_transformed = preprocessor.fit_transform(X_sample)
-    except Exception as e:
-        pytest.fail(f"Preprocessor fit_transform raised an exception: {e}")
+    X_transformed = preprocessor.fit_transform(X_sample)
 
     # Assert
     assert X_transformed.shape[0] == 3
@@ -90,3 +88,19 @@ def test_transformation_on_sample_data():
     # For this sample data, merchant_type has 2 unique values, device_type has 2.
     # Total columns = 1 (numeric) + 2 (merchant_type) + 2 (device_type) = 5
     assert X_transformed.shape[1] == 5
+
+    # Verify that the numeric column is the log1p of the original amounts
+    expected_numeric = np.log1p(X_sample['amount']).values
+    scaler = preprocessor.named_transformers_['numeric'].named_steps['scaler']
+    numeric_column = scaler.inverse_transform(X_transformed[:, [0]]).ravel()
+    assert np.allclose(numeric_column, expected_numeric)
+
+    # Verify that feature names are returned as expected
+    expected_features = [
+        'amount',
+        'merchant_type_retail',
+        'merchant_type_travel',
+        'device_type_desktop',
+        'device_type_mobile',
+    ]
+    assert transformer.get_feature_names() == expected_features
