@@ -318,11 +318,11 @@ class TrainingPipeline:
             preprocessor = pipeline.named_steps['preprocessor']
 
             # Get feature names after one-hot encoding
-            cat_features = preprocessor.named_transformers_['cat'].get_feature_names_out(
+            categorical_features = preprocessor.named_transformers_['categorical'].get_feature_names_out(
                 self.config['features']['categorical_cols']
             )
             num_features = self.config['features']['numerical_cols']
-            feature_names = np.concatenate([num_features, cat_features])
+            feature_names = np.concatenate([num_features, categorical_features])
 
             importances = classifier.feature_importances_
 
