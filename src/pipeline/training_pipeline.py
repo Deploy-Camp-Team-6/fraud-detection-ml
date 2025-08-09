@@ -13,7 +13,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from botocore.exceptions import ClientError
 from sklearn.model_selection import StratifiedKFold, GridSearchCV, cross_val_predict
-from sklearn.pipeline import Pipeline
+from sklearn.pipeline import Pipeline as SkPipeline
+from imblearn.pipeline import Pipeline as ImbPipeline
+from imblearn.over_sampling import SMOTE
 from sklearn.metrics import make_scorer, f1_score, precision_score, recall_score, roc_auc_score, confusion_matrix
 
 # Add project root to Python path
@@ -151,10 +153,19 @@ class TrainingPipeline:
             model_trainer = ModelTrainer(model_name=self.model_name, params=params_for_run)
             model = model_trainer._get_model(y_train=y) # Pass y for imbalance calculation
 
-            full_pipeline = Pipeline([
-                ("preprocessor", preprocessor),
-                ("classifier", model)
-            ])
+            handle_imbalance = params_for_run['train'].get('handle_imbalance', False)
+
+            if handle_imbalance and self.model_name == "logistic_regression":
+                full_pipeline = ImbPipeline([
+                    ("preprocessor", preprocessor),
+                    ("smote", SMOTE(random_state=params_for_run['train']['random_state'])),
+                    ("classifier", model)
+                ])
+            else:
+                full_pipeline = SkPipeline([
+                    ("preprocessor", preprocessor),
+                    ("classifier", model)
+                ])
 
             # --- 3. Run Tuning or Cross-Validation ---
             if self.tune:
