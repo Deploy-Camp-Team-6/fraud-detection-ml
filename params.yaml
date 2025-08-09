@@ -32,6 +32,7 @@ lightgbm:
 
 logistic_regression:
   solver: 'liblinear'
+  penalty: 'l2'
   C: 1.0
   max_iter: 200
   class_weight: 'balanced' # Controlled by handle_imbalance in the code
@@ -40,8 +41,10 @@ logistic_regression:
 tuning:
   logistic_regression:
     param_grid:
-      classifier__C: [0.1, 1.0, 10.0]
-      classifier__solver: ['liblinear']
+      classifier__solver: ['liblinear', 'saga']
+      classifier__penalty: ['l1', 'l2']
+      classifier__C: [0.01, 0.1, 1.0]
+      classifier__max_iter: [200, 500]
 
   xgboost:
     param_grid:
@@ -68,5 +71,7 @@ best_params:
     num_leaves: 31
 
   logistic_regression:
-    solver: 'liblinear'
-    C: 1.0
+    solver: 'saga'
+    penalty: 'l1'
+    C: 0.1
+    max_iter: 500
