@@ -58,12 +58,12 @@ def test_inference_pipeline(tmp_path):
             registered_model = (
                 f"{config['mlflow_config']['registered_model_base_name']}-logistic_regression"
             )
+            # Retrieve the latest version already logged by the training pipeline.
+            # The training pipeline transitions the model to the desired stage, so
+            # we fetch that version directly rather than expecting a "None" stage.
             model_version = client.get_latest_versions(
-                registered_model, stages=["None"]
+                registered_model, stages=[pipeline.model_stage]
             )[0]
-            client.transition_model_version_stage(
-                name=registered_model, version=model_version.version, stage="Staging"
-            )
 
             predict_input = tmp_path / "predict_input.csv"
             df.drop(columns=["label"]).to_csv(predict_input, index=False)

@@ -297,9 +297,30 @@ class TrainingPipeline:
         )
 
         client = MlflowClient()
+
+        # ``mlflow.sklearn.log_model`` changed its return object in recent
+        # versions of MLflow.  Some releases expose the model version as the
+        # attribute ``version`` while newer ones use
+        # ``registered_model_version``.  The GitHub workflow was failing on the
+        # latter, newer MLflow, raising ``AttributeError: 'ModelInfo' object has
+        # no attribute 'version'``.  To remain compatible across MLflow
+        # versions we attempt to read both attributes and, if neither is
+        # present, fall back to fetching the latest version from the client.
+        model_version = getattr(model_info, "version", None) or getattr(
+            model_info, "registered_model_version", None
+        )
+        if model_version is None:
+            latest_versions = client.get_latest_versions(registered_model_name)
+            if latest_versions:
+                model_version = latest_versions[0].version
+            else:
+                raise ValueError(
+                    f"Unable to determine model version for '{registered_model_name}'."
+                )
+
         client.transition_model_version_stage(
             name=registered_model_name,
-            version=model_info.version,
+            version=model_version,
             stage=self.model_stage,
             archive_existing_versions=True,
         )
