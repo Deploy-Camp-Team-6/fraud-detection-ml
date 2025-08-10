@@ -108,6 +108,24 @@ The training pipeline is designed to be run inside its Docker container to ensur
       --model xgboost --tune
     ```
 
+    You can select different run modes for the training script:
+
+    - `--tune`: run hyperparameter search and register the best model.
+    - `--tune-and-evaluate`: first perform hyperparameter tuning, then immediately run cross-validation with the best parameters. Use this when you want a single command that both discovers optimal hyperparameters and reports evaluation metrics without updating `params.yaml`.
+    - `--use-best-params`: skip tuning and run cross-validation using the `best_params` stored in `params.yaml`.
+
+    Example using `--tune-and-evaluate`:
+
+    ```bash
+    docker run --rm --network="host" \
+      -e MLFLOW_TRACKING_URI="http://localhost:5000" \
+      -e MINIO_ENDPOINT_URL="http://localhost:9000" \
+      -e AWS_ACCESS_KEY_ID=$(grep MINIO_ACCESS_KEY_ID .env | cut -d '=' -f2) \
+      -e AWS_SECRET_ACCESS_KEY=$(grep MINIO_SECRET_KEY .env | cut -d '=' -f2) \
+      fraud-detection-pipeline \
+      --model xgboost --tune-and-evaluate
+    ```
+
 ### 2. Make Predictions with a Trained Model
 
 Use `src/predict.py` to make predictions with a model from the MLflow Model Registry.
