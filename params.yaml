@@ -61,9 +61,9 @@ tuning:
 # --- Best Hyperparameters (to be updated after tuning) ---
 best_params:
   xgboost:
-    n_estimators: 150
-    max_depth: 5
-    learning_rate: 0.1
+    n_estimators: 50
+    max_depth: 3
+    learning_rate: 0.05
 
   lightgbm:
     n_estimators: 200
