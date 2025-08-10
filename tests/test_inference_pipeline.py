@@ -59,11 +59,8 @@ def test_inference_pipeline(tmp_path):
                 f"{config['mlflow_config']['registered_model_base_name']}-logistic_regression"
             )
             model_version = client.get_latest_versions(
-                registered_model, stages=["None"]
+                registered_model, stages=["Staging"]
             )[0]
-            client.transition_model_version_stage(
-                name=registered_model, version=model_version.version, stage="Staging"
-            )
 
             predict_input = tmp_path / "predict_input.csv"
             df.drop(columns=["label"]).to_csv(predict_input, index=False)

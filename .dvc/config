@@ -2,4 +2,6 @@
     remote = minio
 ['remote "minio"']
     url = s3://fraud-detection/dvcstore
-    endpointurl = https://s3.minio.fraudai.cloud
+    endpointurl = http://localhost:9000
+    access_key_id = minio_access_key
+    secret_access_key = minio_secret_key

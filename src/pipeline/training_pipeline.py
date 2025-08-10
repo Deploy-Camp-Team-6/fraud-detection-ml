@@ -28,10 +28,11 @@ from src.utils import load_config, load_params, drop_constant_columns
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class TrainingPipeline:
-    def __init__(self, model_name: str, tune: bool, use_best_params: bool = False, model_stage: str | None = None):
+    def __init__(self, model_name: str, tune: bool, use_best_params: bool = False, tune_and_evaluate: bool = False, model_stage: str | None = None):
         self.model_name = model_name
         self.tune = tune
         self.use_best_params = use_best_params
+        self.tune_and_evaluate = tune_and_evaluate
         self.model_stage = model_stage or os.getenv("MODEL_REGISTRY_STAGE", "Staging")
         self.config = load_config()
         self.params = load_params()
@@ -83,14 +84,16 @@ class TrainingPipeline:
 
     def _initialize_mlflow(self, params_to_log: dict):
         """Sets up the MLflow tracking URI, experiment, and base tags."""
-        if self.tune:
+        if self.tune_and_evaluate:
+            run_type = "Tune-and-Evaluate"
+        elif self.tune:
             run_type = "Tuning"
         elif self.use_best_params:
             run_type = "Best-Params-CV"
         else:
             run_type = "Default-Params-CV"
 
-        run_name = f"{self.model_name}-{run_type.lower()}"
+        run_name = f"{self.model_name}-{run_type.lower().replace('_', '-')}"
 
         self._ensure_mlflow_bucket_exists()
         mlflow.set_tracking_uri(self.mlflow_config['tracking_uri'])
@@ -121,14 +124,37 @@ class TrainingPipeline:
         mlflow.log_artifact(self.project_root / "config/config.yaml", "config")
         mlflow.log_artifact(self.project_root / "params.yaml", "config")
 
+    def _create_pipeline(self, params, y_data):
+        """Creates a full scikit-learn pipeline with preprocessing and a model."""
+        data_transformer = DataTransformation(
+            feature_config=self.config['features'],
+            params=params
+        )
+        preprocessor = data_transformer.preprocessor
+
+        model_trainer = ModelTrainer(model_name=self.model_name, params=params)
+        model = model_trainer._get_model(y_train=y_data)
+
+        handle_imbalance = params['train'].get('handle_imbalance', False)
+
+        if handle_imbalance and self.model_name == "logistic_regression":
+            return ImbPipeline([
+                ("preprocessor", preprocessor),
+                ("smote", SMOTE(random_state=params['train']['random_state'])),
+                ("classifier", model)
+            ])
+        else:
+            return SkPipeline([
+                ("preprocessor", preprocessor),
+                ("classifier", model)
+            ])
+
     def run(self):
         """Execute the full training or tuning pipeline."""
         try:
-            # Make a deep copy of params to modify for this specific run
             import copy
             params_for_run = copy.deepcopy(self.params)
 
-            # If using best_params, overwrite the model's params with the best ones
             if self.use_best_params:
                 if 'best_params' not in self.params or self.model_name not in self.params['best_params']:
                     logging.error(f"Cannot use --use-best-params because 'best_params' section or model '{self.model_name}' not found in params.yaml.")
@@ -140,7 +166,6 @@ class TrainingPipeline:
 
             self._initialize_mlflow(params_to_log=params_for_run)
 
-            # --- 1. Load Data ---
             df = self._load_data()
             feature_cols = self.config['features']['numerical_cols'] + self.config['features']['categorical_cols']
             df, dropped = drop_constant_columns(df, feature_cols)
@@ -151,41 +176,33 @@ class TrainingPipeline:
             X = df.drop(columns=[self.config['features']['target_column']])
             y = df[self.config['features']['target_column']]
 
-            # --- 2. Create Preprocessing and Model Pipeline ---
-            data_transformer = DataTransformation(
-                feature_config=self.config['features'],
-                params=params_for_run
-            )
-            preprocessor = data_transformer.preprocessor
+            initial_pipeline = self._create_pipeline(params_for_run, y)
 
-            model_trainer = ModelTrainer(model_name=self.model_name, params=params_for_run)
-            model = model_trainer._get_model(y_train=y) # Pass y for imbalance calculation
+            if self.tune_and_evaluate:
+                logging.info("--- Starting Tuning Phase ---")
+                best_params_from_tuning = self._run_tuning(initial_pipeline, X, y, register_model=False)
 
-            handle_imbalance = params_for_run['train'].get('handle_imbalance', False)
+                logging.info("--- Tuning Complete. Starting Cross-Validation Phase ---")
+                cleaned_params = {k.split('__', 1)[1]: v for k, v in best_params_from_tuning.items()}
 
-            if handle_imbalance and self.model_name == "logistic_regression":
-                full_pipeline = ImbPipeline([
-                    ("preprocessor", preprocessor),
-                    ("smote", SMOTE(random_state=params_for_run['train']['random_state'])),
-                    ("classifier", model)
-                ])
+                params_for_cv = copy.deepcopy(params_for_run)
+                params_for_cv[self.model_name].update(cleaned_params)
+
+                logging.info(f"Running CV with best parameters: {cleaned_params}")
+                mlflow.log_params({f"final_best_{k}": v for k, v in cleaned_params.items()})
+
+                cv_pipeline = self._create_pipeline(params_for_cv, y)
+                self._run_cross_validation(cv_pipeline, X, y)
+
+            elif self.tune:
+                self._run_tuning(initial_pipeline, X, y, register_model=True)
             else:
-                full_pipeline = SkPipeline([
-                    ("preprocessor", preprocessor),
-                    ("classifier", model)
-                ])
-
-            # --- 3. Run Tuning or Cross-Validation ---
-            if self.tune:
-                self._run_tuning(full_pipeline, X, y)
-            else:
-                self._run_cross_validation(full_pipeline, X, y)
+                self._run_cross_validation(initial_pipeline, X, y)
 
         except Exception as e:
             logging.error(f"An error occurred during the training pipeline: {e}", exc_info=True)
             raise
         finally:
-            # Ensure the MLflow run is always ended
             mlflow.end_run()
             logging.info("MLflow run finished.")
 
@@ -195,7 +212,7 @@ class TrainingPipeline:
         logging.info(f"Loading raw data from {raw_data_path}")
         return pd.read_csv(raw_data_path)
 
-    def _run_tuning(self, pipeline, X, y):
+    def _run_tuning(self, pipeline, X, y, register_model: bool = True):
         """Performs hyperparameter tuning using GridSearchCV."""
         logging.info(f"Starting hyperparameter tuning for {self.model_name}...")
         
@@ -217,7 +234,7 @@ class TrainingPipeline:
         logging.info(f"Best parameters found: {grid_search.best_params_}")
         logging.info(f"Best F1 score from tuning: {grid_search.best_score_:.4f}")
 
-        mlflow.log_params({f"best_{k}": v for k, v in grid_search.best_params_.items()})
+        mlflow.log_params({f"tuning_best_{k}": v for k, v in grid_search.best_params_.items()})
         mlflow.log_metric("best_tuning_f1_score", grid_search.best_score_)
 
         # Log CV results as a CSV artifact
@@ -227,8 +244,11 @@ class TrainingPipeline:
         mlflow.log_artifact(cv_results_path, "tuning")
         cv_results_path.unlink()
 
-        # Log the best model found
-        self._log_and_register_model(grid_search.best_estimator_, X, y)
+        # Log the best model found only if this is a standalone tuning run
+        if register_model:
+            self._log_and_register_model(grid_search.best_estimator_, X, y)
+
+        return grid_search.best_params_
 
     def _run_cross_validation(self, pipeline, X, y):
         """Performs cross-validation with nested runs for each fold."""
@@ -297,12 +317,14 @@ class TrainingPipeline:
         )
 
         client = MlflowClient()
-        client.transition_model_version_stage(
-            name=registered_model_name,
-            version=model_info.version,
-            stage=self.model_stage,
-            archive_existing_versions=True,
-        )
+        # If the model is registered, transition its stage
+        if model_info.registered_model_version is not None:
+            client.transition_model_version_stage(
+                name=registered_model_name,
+                version=model_info.registered_model_version,
+                stage=self.model_stage,
+                archive_existing_versions=True,
+            )
         logging.info(
             f"Model registered as '{registered_model_name}' and transitioned to stage '{self.model_stage}'."
         )
@@ -370,35 +392,41 @@ if __name__ == "__main__":
         help="The model to train."
     )
     parser.add_argument(
-        "--tune",
-        action="store_true",
-        help="If set, run hyperparameter tuning instead of single cross-validation."
-    )
-    parser.add_argument(
-        "--use-best-params",
-        action="store_true",
-        help="If set, use the 'best_params' section from params.yaml for training."
-    )
-    parser.add_argument(
         "--model-stage",
         type=str,
         choices=["Staging", "Production"],
+        default=os.getenv("MODEL_REGISTRY_STAGE", "Staging"),
         help=(
             "MLflow model registry stage for the logged model. Defaults to the "
             "MODEL_REGISTRY_STAGE environment variable or 'Staging'."
         ),
     )
-    args = parser.parse_args()
 
-    # Validate arguments
-    if args.tune and args.use_best_params:
-        logging.error("--tune and --use-best-params cannot be used at the same time.")
-        sys.exit(1)
+    # Mutually exclusive group for run modes
+    mode_group = parser.add_mutually_exclusive_group(required=False)
+    mode_group.add_argument(
+        "--tune",
+        action="store_true",
+        help="Run hyperparameter tuning and log the best model."
+    )
+    mode_group.add_argument(
+        "--use-best-params",
+        action="store_true",
+        help="Run cross-validation using the 'best_params' from params.yaml."
+    )
+    mode_group.add_argument(
+        "--tune-and-evaluate",
+        action="store_true",
+        help="Run tuning, then immediately run CV with the best found params."
+    )
+
+    args = parser.parse_args()
 
     pipeline = TrainingPipeline(
         model_name=args.model,
         tune=args.tune,
         use_best_params=args.use_best_params,
+        tune_and_evaluate=args.tune_and_evaluate,
         model_stage=args.model_stage
     )
     pipeline.run()

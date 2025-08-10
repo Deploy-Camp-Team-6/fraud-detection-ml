@@ -48,9 +48,9 @@ tuning:
 
   xgboost:
     param_grid:
-      classifier__n_estimators: [50, 100]
-      classifier__max_depth: [3, 5]
-      classifier__learning_rate: [0.05, 0.1]
+      classifier__n_estimators: [50, 100, 150]
+      classifier__max_depth: [3, 5, 7]
+      classifier__learning_rate: [0.01, 0.05, 0.1]
 
   lightgbm:
     param_grid:
