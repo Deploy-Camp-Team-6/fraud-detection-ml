@@ -11,13 +11,12 @@ from src.utils import load_config
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def predict(model_name: str, stage: str, input_path: str, output_path: str):
-    """
-    Loads a registered model from MLflow and makes predictions on new data.
+def predict(model_name: str, alias: str, input_path: str, output_path: str):
+    """Load a registered model from MLflow and generate predictions.
 
     Args:
-        model_name (str): The base name of the model in the registry (e.g., 'xgboost').
-        stage (str): The stage of the model to use (e.g., 'Staging', 'Production').
+        model_name (str): Base name of the model in the registry (e.g., 'xgboost').
+        alias (str): The model alias to load (e.g., 'champion').
         input_path (str): Path to the input CSV data.
         output_path (str): Path to save the predictions CSV.
     """
@@ -26,8 +25,8 @@ def predict(model_name: str, stage: str, input_path: str, output_path: str):
         mlflow_config = config['mlflow_config']
         mlflow.set_tracking_uri(mlflow_config['tracking_uri'])
 
-        # Load the model from the registry
-        model_uri = f"models:/{mlflow_config['registered_model_base_name']}-{model_name}/{stage}"
+        # Load the model using a registered alias
+        model_uri = f"models:/{mlflow_config['registered_model_base_name']}-{model_name}@{alias}"
         logging.info(f"Loading model from URI: {model_uri}")
         model = mlflow.sklearn.load_model(model_uri)
 
@@ -59,10 +58,26 @@ def predict(model_name: str, stage: str, input_path: str, output_path: str):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Make predictions using a registered model.")
-    parser.add_argument("--model", type=str, required=True, choices=["xgboost", "lightgbm", "logistic_regression"], help="Base name of the model.")
-    parser.add_argument("--stage", type=str, default="Staging", help="Stage of the model to use (e.g., 'Staging', 'Production').")
+    parser.add_argument(
+        "--model",
+        type=str,
+        required=True,
+        choices=["xgboost", "lightgbm", "logistic_regression"],
+        help="Base name of the model.",
+    )
+    parser.add_argument(
+        "--alias",
+        type=str,
+        default=os.getenv("MODEL_REGISTRY_ALIAS", "champion"),
+        help="Alias of the model version to use.",
+    )
     parser.add_argument("--input", type=str, required=True, help="Path to the input CSV file.")
-    parser.add_argument("--output", type=str, default=None, help="Path to save the output CSV. If not provided, prints to console.")
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Path to save the output CSV. If not provided, prints to console.",
+    )
 
     args = parser.parse_args()
-    predict(model_name=args.model, stage=args.stage, input_path=args.input, output_path=args.output)
+    predict(model_name=args.model, alias=args.alias, input_path=args.input, output_path=args.output)
