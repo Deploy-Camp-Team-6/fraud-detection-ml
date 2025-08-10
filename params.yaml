@@ -31,10 +31,11 @@ lightgbm:
   is_unbalance: True # Controlled by handle_imbalance in the code
 
 logistic_regression:
-  solver: 'liblinear'
-  penalty: 'l2'
-  C: 1.0
-  max_iter: 200
+  solver: 'saga'
+  penalty: 'elasticnet'
+  l1_ratio: 0.5
+  C: 0.5
+  max_iter: 500
   class_weight: 'balanced' # Controlled by handle_imbalance in the code
 
 # --- Hyperparameter Tuning Grids ---
@@ -72,6 +73,7 @@ best_params:
 
   logistic_regression:
     solver: 'saga'
-    penalty: 'l1'
-    C: 0.1
+    penalty: 'elasticnet'
+    l1_ratio: 0.5
+    C: 0.5
     max_iter: 500
