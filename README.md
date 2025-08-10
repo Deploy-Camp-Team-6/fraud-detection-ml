@@ -130,10 +130,10 @@ The training pipeline is designed to be run inside its Docker container to ensur
 
 Use `src/predict.py` to make predictions with a model from the MLflow Model Registry.
 ```bash
-# Example: Make predictions with the 'Staging' version of the xgboost model
+# Example: Make predictions with the 'champion' alias of the xgboost model
 poetry run python src/predict.py \
   --model xgboost \
-  --stage Staging \
+  --alias champion \
   --input "path/to/your/data.csv" \
   --output "predictions.csv"
 ```

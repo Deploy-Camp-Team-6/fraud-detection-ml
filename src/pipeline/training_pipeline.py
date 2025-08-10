@@ -29,12 +29,13 @@ from src.utils import load_config, load_params, drop_constant_columns
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class TrainingPipeline:
-    def __init__(self, model_name: str, tune: bool, use_best_params: bool = False, tune_and_evaluate: bool = False, model_stage: str | None = None):
+    def __init__(self, model_name: str, tune: bool, use_best_params: bool = False, tune_and_evaluate: bool = False, model_alias: str | None = None):
         self.model_name = model_name
         self.tune = tune
         self.use_best_params = use_best_params
         self.tune_and_evaluate = tune_and_evaluate
-        self.model_stage = model_stage or os.getenv("MODEL_REGISTRY_STAGE", "Staging")
+        # Use model aliases instead of stages when registering models
+        self.model_alias = model_alias or os.getenv("MODEL_REGISTRY_ALIAS", "champion")
         self.config = load_config()
         self.params = load_params()
         self.mlflow_config = self.config['mlflow_config']
@@ -317,16 +318,15 @@ class TrainingPipeline:
         )
 
         client = MlflowClient()
-        # If the model is registered, transition its stage
+        # If the model is registered, assign the provided alias
         if model_info.registered_model_version is not None:
-            client.transition_model_version_stage(
+            client.set_registered_model_alias(
                 name=registered_model_name,
                 version=model_info.registered_model_version,
-                stage=self.model_stage,
-                archive_existing_versions=True,
+                alias=self.model_alias,
             )
         logging.info(
-            f"Model registered as '{registered_model_name}' and transitioned to stage '{self.model_stage}'."
+            f"Model registered as '{registered_model_name}' and aliased as '{self.model_alias}'."
         )
 
     def _log_confusion_matrix(self, y_true, y_pred):
@@ -392,13 +392,12 @@ if __name__ == "__main__":
         help="The model to train."
     )
     parser.add_argument(
-        "--model-stage",
+        "--model-alias",
         type=str,
-        choices=["Staging", "Production"],
-        default=os.getenv("MODEL_REGISTRY_STAGE", "Staging"),
+        default=os.getenv("MODEL_REGISTRY_ALIAS", "champion"),
         help=(
-            "MLflow model registry stage for the logged model. Defaults to the "
-            "MODEL_REGISTRY_STAGE environment variable or 'Staging'."
+            "Alias name to assign to the registered model version. Defaults to the "
+            "MODEL_REGISTRY_ALIAS environment variable or 'champion'."
         ),
     )
 
@@ -427,6 +426,6 @@ if __name__ == "__main__":
         tune=args.tune,
         use_best_params=args.use_best_params,
         tune_and_evaluate=args.tune_and_evaluate,
-        model_stage=args.model_stage
+        model_alias=args.model_alias
     )
     pipeline.run()
