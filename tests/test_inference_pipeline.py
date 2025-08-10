@@ -10,7 +10,7 @@ import mlflow
 from mlflow.tracking import MlflowClient
 
 # Ensure src is on path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from src.pipeline.training_pipeline import TrainingPipeline
 from src.predict import predict
@@ -61,6 +61,7 @@ def test_inference_pipeline(tmp_path):
             model_version = client.get_latest_versions(
                 registered_model, stages=["Staging"]
             )[0]
+            assert model_version.current_stage == "Staging"
 
             predict_input = tmp_path / "predict_input.csv"
             df.drop(columns=["label"]).to_csv(predict_input, index=False)
