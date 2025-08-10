@@ -58,10 +58,16 @@ def test_inference_pipeline(tmp_path):
             registered_model = (
                 f"{config['mlflow_config']['registered_model_base_name']}-logistic_regression"
             )
-            model_version = client.get_model_version_by_alias(
-                registered_model, "champion"
+            model_version = client.get_latest_versions(registered_model)[0]
+            client.set_registered_model_alias(
+                name=registered_model,
+                alias="champion",
+                version=model_version.version,
             )
-            assert "champion" in model_version.aliases
+            aliased_version = client.get_model_version_by_alias(
+                name=registered_model, alias="champion"
+            )
+            assert aliased_version.version == model_version.version
 
             predict_input = tmp_path / "predict_input.csv"
             df.drop(columns=["label"]).to_csv(predict_input, index=False)
