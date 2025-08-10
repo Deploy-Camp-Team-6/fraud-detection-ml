@@ -1,7 +1,5 @@
 import logging
 import numpy as np
-from xgboost import XGBClassifier
-from lightgbm import LGBMClassifier
 from sklearn.linear_model import LogisticRegression
 
 class ModelTrainer:
@@ -31,6 +29,8 @@ class ModelTrainer:
         model_params = self.params.get(self.model_name, {}).copy()
 
         if self.model_name == "xgboost":
+            from xgboost import XGBClassifier
+
             if self.handle_imbalance and y_train is not None:
                 neg_count = np.sum(y_train == 0)
                 pos_count = np.sum(y_train == 1)
@@ -41,6 +41,8 @@ class ModelTrainer:
             return XGBClassifier(random_state=self.random_state, **model_params)
 
         elif self.model_name == "lightgbm":
+            from lightgbm import LGBMClassifier
+
             if not self.handle_imbalance and 'is_unbalance' in model_params:
                 del model_params['is_unbalance']
             return LGBMClassifier(random_state=self.random_state, **model_params)

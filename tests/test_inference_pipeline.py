@@ -74,7 +74,7 @@ def test_inference_pipeline(tmp_path):
             predict_output = tmp_path / "predict_output.csv"
             predict(
                 model_name="logistic_regression",
-                stage="Staging",
+                alias="champion",
                 input_path=str(predict_input),
                 output_path=str(predict_output),
             )
