@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import mlflow
 import mlflow.sklearn
+from mlflow.tracking import MlflowClient
 import boto3
 import json
 from pathlib import Path
@@ -27,10 +28,11 @@ from src.utils import load_config, load_params, drop_constant_columns
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class TrainingPipeline:
-    def __init__(self, model_name: str, tune: bool, use_best_params: bool = False):
+    def __init__(self, model_name: str, tune: bool, use_best_params: bool = False, model_stage: str | None = None):
         self.model_name = model_name
         self.tune = tune
         self.use_best_params = use_best_params
+        self.model_stage = model_stage or os.getenv("MODEL_REGISTRY_STAGE", "Staging")
         self.config = load_config()
         self.params = load_params()
         self.mlflow_config = self.config['mlflow_config']
@@ -287,13 +289,23 @@ class TrainingPipeline:
 
         # --- Log and Register Model ---
         registered_model_name = f"{self.mlflow_config['registered_model_base_name']}-{self.model_name}"
-        mlflow.sklearn.log_model(
+        model_info = mlflow.sklearn.log_model(
             sk_model=model,
             artifact_path="model",
             registered_model_name=registered_model_name,
             input_example=X.head(5)
         )
-        logging.info(f"Model registered as '{registered_model_name}'")
+
+        client = MlflowClient()
+        client.transition_model_version_stage(
+            name=registered_model_name,
+            version=model_info.version,
+            stage=self.model_stage,
+            archive_existing_versions=True,
+        )
+        logging.info(
+            f"Model registered as '{registered_model_name}' and transitioned to stage '{self.model_stage}'."
+        )
 
     def _log_confusion_matrix(self, y_true, y_pred):
         """Creates, logs, and saves a confusion matrix plot."""
@@ -367,6 +379,15 @@ if __name__ == "__main__":
         action="store_true",
         help="If set, use the 'best_params' section from params.yaml for training."
     )
+    parser.add_argument(
+        "--model-stage",
+        type=str,
+        choices=["Staging", "Production"],
+        help=(
+            "MLflow model registry stage for the logged model. Defaults to the "
+            "MODEL_REGISTRY_STAGE environment variable or 'Staging'."
+        ),
+    )
     args = parser.parse_args()
 
     # Validate arguments
@@ -377,6 +398,7 @@ if __name__ == "__main__":
     pipeline = TrainingPipeline(
         model_name=args.model,
         tune=args.tune,
-        use_best_params=args.use_best_params
+        use_best_params=args.use_best_params,
+        model_stage=args.model_stage
     )
     pipeline.run()
