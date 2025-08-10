@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 
 # Add src to Python path to allow component imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-from src.components.data_transformation import DataTransformation, DataTransformationConfig
+from src.components.data_transformation import DataTransformation
 
 def main():
     """
@@ -38,13 +38,23 @@ def main():
         stratify=df[params['train']['target_column']] # Stratify for imbalanced data
     )
 
-    # Initialize and run data transformation
-    transformation_config = DataTransformationConfig(target_column=params['train']['target_column'])
-    data_transformer = DataTransformation(config=transformation_config)
-    
-    # We only need the preprocessor object and transformed datasets here
-    X_train_processed, y_train, X_test_processed, y_test, preprocessor, _ = \
-        data_transformer.initiate_data_transformation(train_df, test_df)
+    # Initialize data transformer with feature configuration
+    feature_config = config['features']
+    data_transformer = DataTransformation(feature_config=feature_config, params=params)
+    preprocessor = data_transformer.preprocessor
+
+    target_col = feature_config['target_column']
+    drop_cols = feature_config.get('drop_cols', [])
+
+    # Prepare features and target
+    X_train = train_df.drop(columns=[target_col] + drop_cols)
+    y_train = train_df[target_col]
+    X_test = test_df.drop(columns=[target_col] + drop_cols)
+    y_test = test_df[target_col]
+
+    # Fit preprocessor on training data and transform both splits
+    X_train_processed = preprocessor.fit_transform(X_train)
+    X_test_processed = preprocessor.transform(X_test)
 
     # Combine processed features and target for saving
     train_arr = pd.concat([pd.DataFrame(X_train_processed), y_train.reset_index(drop=True)], axis=1)
