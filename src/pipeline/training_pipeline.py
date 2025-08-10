@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 import argparse
+import copy
 import pandas as pd
 import numpy as np
 import mlflow
@@ -152,7 +153,6 @@ class TrainingPipeline:
     def run(self):
         """Execute the full training or tuning pipeline."""
         try:
-            import copy
             params_for_run = copy.deepcopy(self.params)
 
             if self.use_best_params:
