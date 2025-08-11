@@ -58,16 +58,19 @@ def test_inference_pipeline(tmp_path):
             registered_model = (
                 f"{config['mlflow_config']['registered_model_base_name']}-logistic_regression"
             )
-            model_version = client.get_latest_versions(registered_model)[0]
+            # MlflowClient.get_latest_versions is deprecated; search and pick latest version
+            model_versions = client.search_model_versions(f"name='{registered_model}'")
+            latest_version = max(model_versions, key=lambda mv: int(mv.version))
+
             client.set_registered_model_alias(
                 name=registered_model,
                 alias="champion",
-                version=model_version.version,
+                version=latest_version.version,
             )
             aliased_version = client.get_model_version_by_alias(
                 name=registered_model, alias="champion"
             )
-            assert aliased_version.version == model_version.version
+            assert aliased_version.version == latest_version.version
 
             predict_input = tmp_path / "predict_input.csv"
             df.drop(columns=["label"]).to_csv(predict_input, index=False)
