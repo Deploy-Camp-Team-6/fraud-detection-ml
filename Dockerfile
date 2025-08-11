@@ -2,7 +2,7 @@
 
 # --- Base Stage ---
 # Use a slim Python base image for a smaller final image size.
-FROM python:3.10-slim AS base
+FROM python:3.11-slim AS base
 
 # Install essential libraries for LightGBM.
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1

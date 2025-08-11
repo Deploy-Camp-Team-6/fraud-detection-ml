@@ -48,7 +48,12 @@ This project provides a fully functional, end-to-end machine learning pipeline f
 ### Prerequisites
 
 - Docker & Docker Compose
-- Python 3.10+
+- Python 3.11+
+  - If needed, install it using a version manager such as [pyenv](https://github.com/pyenv/pyenv):
+    ```bash
+    pyenv install 3.11
+    pyenv global 3.11
+    ```
 - Poetry (`pip install poetry`)
 
 ### Setup Instructions
