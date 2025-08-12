@@ -311,7 +311,7 @@ class TrainingPipeline:
 
         # --- Log and Register Model ---
         registered_model_name = f"{self.mlflow_config['registered_model_base_name']}-{self.model_name}"
-        mlflow.sklearn.log_model(
+        model_info = mlflow.sklearn.log_model(
             sk_model=model,
             artifact_path="model",
             registered_model_name=registered_model_name,
@@ -323,6 +323,7 @@ class TrainingPipeline:
         )
         # If the model is registered, assign the provided alias
         if model_info.registered_model_version is not None:
+            version = model_info.registered_model_version
             client.set_registered_model_alias(
                 name=registered_model_name,
                 version=version,
