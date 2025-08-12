@@ -9,8 +9,6 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from src.utils import load_config
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 def run_drift_analysis(reference_df: pd.DataFrame, current_df: pd.DataFrame, config: dict):
     """
     Performs drift analysis between a reference and current dataset.
@@ -64,6 +62,8 @@ def run_drift_analysis(reference_df: pd.DataFrame, current_df: pd.DataFrame, con
     return drift_report
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
     parser = argparse.ArgumentParser(description="Monitor data drift between two datasets.")
     parser.add_argument(
         "--reference_data",
