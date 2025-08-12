@@ -310,24 +310,30 @@ class TrainingPipeline:
 
         # --- Log and Register Model ---
         registered_model_name = f"{self.mlflow_config['registered_model_base_name']}-{self.model_name}"
-        model_info = mlflow.sklearn.log_model(
+        mlflow.sklearn.log_model(
             sk_model=model,
             artifact_path="model",
             registered_model_name=registered_model_name,
-            input_example=X.head(5)
+            input_example=X.head(5),
         )
 
         client = MlflowClient()
-        # If the model is registered, assign the provided alias
-        if model_info.registered_model_version is not None:
+        run_id = mlflow.active_run().info.run_id
+        versions = client.search_model_versions(
+            f"name='{registered_model_name}' and run_id='{run_id}'"
+        )
+        if versions:
+            version = versions[0].version
             client.set_registered_model_alias(
                 name=registered_model_name,
-                version=model_info.registered_model_version,
+                version=version,
                 alias=self.model_alias,
             )
-        logging.info(
-            f"Model registered as '{registered_model_name}' and aliased as '{self.model_alias}'."
-        )
+            logging.info(
+                f"Model registered as '{registered_model_name}' with version {version} and aliased as '{self.model_alias}'."
+            )
+        else:
+            logging.warning("No model version found to alias.")
 
     def _log_confusion_matrix(self, y_true, y_pred):
         """Creates, logs, and saves a confusion matrix plot."""
