@@ -24,6 +24,11 @@ def run_drift_analysis(reference_df: pd.DataFrame, current_df: pd.DataFrame, con
 
     drift_report = {}
 
+    combined_df = pd.concat(
+        [reference_df.assign(source="ref"), current_df.assign(source="cur")],
+        ignore_index=True,
+    )
+
     # 1. Numerical feature drift (KS test)
     logging.info("Analyzing numerical feature drift...")
     for col in numerical_cols:
@@ -43,11 +48,7 @@ def run_drift_analysis(reference_df: pd.DataFrame, current_df: pd.DataFrame, con
     logging.info("Analyzing categorical feature drift...")
     for col in categorical_cols:
         if col in reference_df.columns and col in current_df.columns:
-            # Create a contingency table
-            contingency_table = pd.crosstab(
-                pd.concat([reference_df[[col]].assign(source='ref'), current_df[[col]].assign(source='cur')])[col],
-                pd.concat([reference_df[[col]].assign(source='ref'), current_df[[col]].assign(source='cur')])['source']
-            )
+            contingency_table = pd.crosstab(combined_df[col], combined_df["source"])
 
             stat, p_value, _, _ = chi2_contingency(contingency_table)
             drift_report[col] = {
