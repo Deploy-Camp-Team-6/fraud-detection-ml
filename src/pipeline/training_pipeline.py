@@ -37,6 +37,8 @@ class TrainingPipeline:
         self.config = load_config()
         self.params = load_params()
         self.mlflow_config = self.config['mlflow_config']
+        # Use dedicated registry URI if provided, else fall back to tracking URI
+        self.registry_uri = self.mlflow_config.get('registry_uri', self.mlflow_config['tracking_uri'])
         self.cv_splitter = StratifiedKFold(
             n_splits=self.params['train']['n_splits'],
             shuffle=True,
@@ -97,6 +99,7 @@ class TrainingPipeline:
 
         self._ensure_mlflow_bucket_exists()
         mlflow.set_tracking_uri(self.mlflow_config['tracking_uri'])
+        mlflow.set_registry_uri(self.registry_uri)
         mlflow.set_experiment(self.mlflow_config['experiment_name'])
 
         # Start the parent run
@@ -308,20 +311,19 @@ class TrainingPipeline:
 
         # --- Log and Register Model ---
         registered_model_name = f"{self.mlflow_config['registered_model_base_name']}-{self.model_name}"
-        mlflow.sklearn.log_model(
+        model_info = mlflow.sklearn.log_model(
             sk_model=model,
             artifact_path="model",
             registered_model_name=registered_model_name,
             input_example=X.head(5),
         )
-
-        client = MlflowClient()
-        run_id = mlflow.active_run().info.run_id
-        versions = client.search_model_versions(
-            f"name='{registered_model_name}' and run_id='{run_id}'"
+        client = MlflowClient(
+            tracking_uri=self.mlflow_config['tracking_uri'],
+            registry_uri=self.registry_uri,
         )
-        if versions:
-            version = versions[0].version
+        # If the model is registered, assign the provided alias
+        if model_info.registered_model_version is not None:
+            version = model_info.registered_model_version
             client.set_registered_model_alias(
                 name=registered_model_name,
                 version=version,

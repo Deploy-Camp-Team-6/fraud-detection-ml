@@ -21,7 +21,9 @@ def predict(model_name: str, alias: str, input_path: str, output_path: str):
     try:
         config = load_config()
         mlflow_config = config['mlflow_config']
+        registry_uri = mlflow_config.get('registry_uri', mlflow_config['tracking_uri'])
         mlflow.set_tracking_uri(mlflow_config['tracking_uri'])
+        mlflow.set_registry_uri(registry_uri)
 
         # Load the model using a registered alias
         model_uri = f"models:/{mlflow_config['registered_model_base_name']}-{model_name}@{alias}"
