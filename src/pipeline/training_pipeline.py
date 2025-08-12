@@ -26,8 +26,6 @@ from src.components.data_transformation import DataTransformation
 from src.components.model_trainer import ModelTrainer
 from src.utils import load_config, load_params, drop_constant_columns
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 class TrainingPipeline:
     def __init__(self, model_name: str, tune: bool, use_best_params: bool = False, tune_and_evaluate: bool = False, model_alias: str | None = None):
         self.model_name = model_name
@@ -383,6 +381,8 @@ class TrainingPipeline:
             logging.warning(f"Could not generate or log feature importance plot: {e}")
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
     parser = argparse.ArgumentParser(description="Run the ML training pipeline.")
     parser.add_argument(
         "--model",
