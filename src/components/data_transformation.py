@@ -60,6 +60,12 @@ class DataTransformation:
 
     def get_feature_names(self) -> List[str]:
         """Returns the feature names after transformation."""
+        if not hasattr(self.preprocessor, "named_transformers_"):
+            raise AttributeError(
+                "Preprocessor has not been fitted yet. Call fit or fit_transform before "
+                "retrieving feature names."
+            )
+
         try:
             numeric_features = self.config['numerical_cols']
             categorical_features_raw = self.config['categorical_cols']
