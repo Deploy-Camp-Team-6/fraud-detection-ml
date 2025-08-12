@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
+import pytest
 
 # Add src to path to allow imports
 import sys
@@ -103,3 +104,12 @@ def test_transformation_on_sample_data():
         'device_type_mobile',
     ]
     assert transformer.get_feature_names() == expected_features
+
+
+def test_get_feature_names_without_fit_raises_error():
+    transformer = DataTransformation(
+        feature_config=SAMPLE_FEATURE_CONFIG,
+        params=SAMPLE_PARAMS,
+    )
+    with pytest.raises(AttributeError):
+        transformer.get_feature_names()

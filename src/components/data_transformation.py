@@ -7,8 +7,6 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler, FunctionTransformer
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 class DataTransformation:
     """Handles feature engineering and preprocessing based on configuration."""
 
@@ -60,6 +58,12 @@ class DataTransformation:
 
     def get_feature_names(self) -> List[str]:
         """Returns the feature names after transformation."""
+        if not hasattr(self.preprocessor, "named_transformers_"):
+            raise AttributeError(
+                "Preprocessor has not been fitted yet. Call fit or fit_transform before "
+                "retrieving feature names."
+            )
+
         try:
             numeric_features = self.config['numerical_cols']
             categorical_features_raw = self.config['categorical_cols']

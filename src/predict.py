@@ -9,8 +9,6 @@ import mlflow
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from src.utils import load_config
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 def predict(model_name: str, alias: str, input_path: str, output_path: str):
     """Load a registered model from MLflow and generate predictions.
 
@@ -59,6 +57,8 @@ def predict(model_name: str, alias: str, input_path: str, output_path: str):
         raise
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
     parser = argparse.ArgumentParser(description="Make predictions using a registered model.")
     parser.add_argument(
         "--model",

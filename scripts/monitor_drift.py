@@ -9,8 +9,6 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from src.utils import load_config
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 def run_drift_analysis(reference_df: pd.DataFrame, current_df: pd.DataFrame, config: dict):
     """
     Performs drift analysis between a reference and current dataset.
@@ -23,6 +21,11 @@ def run_drift_analysis(reference_df: pd.DataFrame, current_df: pd.DataFrame, con
     categorical_cols = config['features']['categorical_cols']
 
     drift_report = {}
+
+    combined_df = pd.concat(
+        [reference_df.assign(source="ref"), current_df.assign(source="cur")],
+        ignore_index=True,
+    )
 
     # 1. Numerical feature drift (KS test)
     logging.info("Analyzing numerical feature drift...")
@@ -43,11 +46,7 @@ def run_drift_analysis(reference_df: pd.DataFrame, current_df: pd.DataFrame, con
     logging.info("Analyzing categorical feature drift...")
     for col in categorical_cols:
         if col in reference_df.columns and col in current_df.columns:
-            # Create a contingency table
-            contingency_table = pd.crosstab(
-                pd.concat([reference_df[[col]].assign(source='ref'), current_df[[col]].assign(source='cur')])[col],
-                pd.concat([reference_df[[col]].assign(source='ref'), current_df[[col]].assign(source='cur')])['source']
-            )
+            contingency_table = pd.crosstab(combined_df[col], combined_df["source"])
 
             stat, p_value, _, _ = chi2_contingency(contingency_table)
             drift_report[col] = {
@@ -63,6 +62,8 @@ def run_drift_analysis(reference_df: pd.DataFrame, current_df: pd.DataFrame, con
     return drift_report
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
     parser = argparse.ArgumentParser(description="Monitor data drift between two datasets.")
     parser.add_argument(
         "--reference_data",

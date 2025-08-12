@@ -26,8 +26,6 @@ from src.components.data_transformation import DataTransformation
 from src.components.model_trainer import ModelTrainer
 from src.utils import load_config, load_params, drop_constant_columns
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 class TrainingPipeline:
     def __init__(self, model_name: str, tune: bool, use_best_params: bool = False, tune_and_evaluate: bool = False, model_alias: str | None = None):
         self.model_name = model_name
@@ -313,11 +311,11 @@ class TrainingPipeline:
 
         # --- Log and Register Model ---
         registered_model_name = f"{self.mlflow_config['registered_model_base_name']}-{self.model_name}"
-        model_info = mlflow.sklearn.log_model(
+        mlflow.sklearn.log_model(
             sk_model=model,
             artifact_path="model",
             registered_model_name=registered_model_name,
-            input_example=X.head(5)
+            input_example=X.head(5),
         )
         client = MlflowClient(
             tracking_uri=self.mlflow_config['tracking_uri'],
@@ -327,12 +325,14 @@ class TrainingPipeline:
         if model_info.registered_model_version is not None:
             client.set_registered_model_alias(
                 name=registered_model_name,
-                version=model_info.registered_model_version,
+                version=version,
                 alias=self.model_alias,
             )
-        logging.info(
-            f"Model registered as '{registered_model_name}' and aliased as '{self.model_alias}'."
-        )
+            logging.info(
+                f"Model registered as '{registered_model_name}' with version {version} and aliased as '{self.model_alias}'."
+            )
+        else:
+            logging.warning("No model version found to alias.")
 
     def _log_confusion_matrix(self, y_true, y_pred):
         """Creates, logs, and saves a confusion matrix plot."""
@@ -388,6 +388,8 @@ class TrainingPipeline:
             logging.warning(f"Could not generate or log feature importance plot: {e}")
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
     parser = argparse.ArgumentParser(description="Run the ML training pipeline.")
     parser.add_argument(
         "--model",

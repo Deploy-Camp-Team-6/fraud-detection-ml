@@ -10,8 +10,6 @@ import seaborn as sns
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from src.utils import load_config
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 def run_analysis():
     """
     Performs and saves an exploratory data analysis of the dataset.
@@ -87,4 +85,5 @@ def run_analysis():
         raise
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     run_analysis()
