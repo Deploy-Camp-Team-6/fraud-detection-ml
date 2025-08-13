@@ -321,19 +321,24 @@ class TrainingPipeline:
             tracking_uri=self.mlflow_config['tracking_uri'],
             registry_uri=self.registry_uri,
         )
-        # If the model is registered, assign the provided alias
-        if model_info.registered_model_version is not None:
-            version = model_info.registered_model_version
-            client.set_registered_model_alias(
-                name=registered_model_name,
-                version=version,
-                alias=self.model_alias,
-            )
-            logging.info(
-                f"Model registered as '{registered_model_name}' with version {version} and aliased as '{self.model_alias}'."
-            )
-        else:
-            logging.warning("No model version found to alias.")
+        # In MLflow 2.x, the ModelInfo object from log_model does not contain the
+        # registered model version. We fetch it manually.
+        try:
+            latest_versions = client.get_latest_versions(name=registered_model_name, stages=["None"])
+            if latest_versions:
+                version = latest_versions[0].version
+                client.set_registered_model_alias(
+                    name=registered_model_name,
+                    version=version,
+                    alias=self.model_alias,
+                )
+                logging.info(
+                    f"Model registered as '{registered_model_name}' with version {version} and aliased as '{self.model_alias}'."
+                )
+            else:
+                logging.warning(f"Could not find a version for model '{registered_model_name}' to alias.")
+        except Exception as e:
+            logging.warning(f"An error occurred while setting the model alias: {e}")
 
     def _log_confusion_matrix(self, y_true, y_pred):
         """Creates, logs, and saves a confusion matrix plot."""
