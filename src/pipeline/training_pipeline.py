@@ -124,8 +124,8 @@ class TrainingPipeline:
         mlflow.log_params(params_to_log['train'])
 
         # Log config and params files as artifacts
-        mlflow.log_artifact(self.project_root / "config/config.yaml", "config")
-        mlflow.log_artifact(self.project_root / "params.yaml", "config")
+        mlflow.log_artifact(str(self.project_root / "config/config.yaml"), "config")
+        mlflow.log_artifact(str(self.project_root / "params.yaml"), "config")
 
     def _create_pipeline(self, params, y_data):
         """Creates a full scikit-learn pipeline with preprocessing and a model."""
@@ -224,7 +224,7 @@ class TrainingPipeline:
         param_grid_path = self.project_root / "param_grid.json"
         with open(param_grid_path, 'w') as f:
             json.dump(param_grid, f, indent=4)
-        mlflow.log_artifact(param_grid_path, "tuning")
+        mlflow.log_artifact(str(param_grid_path), "tuning")
         param_grid_path.unlink() # Clean up the file
 
         grid_search = GridSearchCV(
@@ -243,7 +243,7 @@ class TrainingPipeline:
         cv_results_df = pd.DataFrame(grid_search.cv_results_)
         cv_results_path = self.project_root / "tuning_cv_results.csv"
         cv_results_df.to_csv(cv_results_path, index=False)
-        mlflow.log_artifact(cv_results_path, "tuning")
+        mlflow.log_artifact(str(cv_results_path), "tuning")
         cv_results_path.unlink()
 
         # Log the best model found only if this is a standalone tuning run
