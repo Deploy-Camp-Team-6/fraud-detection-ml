@@ -311,7 +311,7 @@ class TrainingPipeline:
 
         # --- Log and Register Model ---
         registered_model_name = f"{self.mlflow_config['registered_model_base_name']}-{self.model_name}"
-        model_info = mlflow.sklearn.log_model(
+        mlflow.sklearn.log_model(
             sk_model=model,
             artifact_path="model",
             registered_model_name=registered_model_name,
