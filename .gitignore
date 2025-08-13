@@ -36,3 +36,7 @@ build/
 
 # MLflow
 mlruns/
+
+# Testing
+.coverage*
+.pytest_cache/
