@@ -16,14 +16,15 @@ pandas = "^2.2.2"
 numpy = "^1.26.0"
 
 # Machine Learning Libraries
-scikit-learn = "1.4.2"  # Pinned for imbalanced-learn compatibility
+scikit-learn = "1.5.2"  # Updated to address security vulnerability
 xgboost = "^2.0.3"
 lightgbm = "^4.3.0"  # Slightly older for better stability
-imbalanced-learn = "0.12.3"  # Pinned for scikit-learn 1.4.2 compatibility
+imbalanced-learn = "0.13.0"  # Updated for scikit-learn 1.5.x compatibility
 
 # MLOps & Experiment Tracking
-mlflow = "2.10.2"  # Downgraded for better stability and compatibility
+mlflow = "2.22.1"  # Updated to patch known vulnerabilities
 dvc = {extras = ["s3"], version = "^3.48.4"}  # More stable version
+gunicorn = "23.0.0"  # Updated to fix security issues
 
 # Configuration & Environment
 python-dotenv = "^1.0.1"

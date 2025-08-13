@@ -1,14 +1,16 @@
-import mlflow
-import pytest
 from pathlib import Path
-from sklearn.linear_model import LogisticRegression
-from sklearn.datasets import make_classification
+
+import mlflow
 import numpy as np
+import pytest
 from mlflow.tracking import MlflowClient
+from sklearn.datasets import make_classification
+from sklearn.linear_model import LogisticRegression
+
 
 def test_mlflow_version():
-    """Asserts that the installed MLflow version is 2.10.2."""
-    assert mlflow.__version__ == "2.10.2"
+    """Asserts that the installed MLflow version is 2.22.1."""
+    assert mlflow.__version__ == "2.22.1"
 
 @pytest.fixture(scope="module")
 def mlflow_client(tmpdir_factory):
@@ -18,7 +20,7 @@ def mlflow_client(tmpdir_factory):
     tmp_path = tmpdir_factory.mktemp("mlflow")
     tracking_uri = f"sqlite:///{tmp_path}/mlflow.db"
     mlflow.set_tracking_uri(tracking_uri)
-    # In 2.10.2, it's good practice to set both, even if they are the same
+    # Set both tracking and registry URIs for consistency
     mlflow.set_registry_uri(tracking_uri)
     return MlflowClient(tracking_uri=tracking_uri, registry_uri=tracking_uri)
 
@@ -55,7 +57,7 @@ def test_mlflow_end_to_end_roundtrip(mlflow_client):
         model_name = "test-compat-model"
         model_alias = "champion"
 
-        model_info = mlflow.sklearn.log_model(
+        mlflow.sklearn.log_model(
             sk_model=model,
             artifact_path="model",
             registered_model_name=model_name,

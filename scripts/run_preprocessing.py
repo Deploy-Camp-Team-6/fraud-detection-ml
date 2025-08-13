@@ -66,7 +66,7 @@ def main():
     X_test_df = pd.DataFrame(X_test_processed, columns=feature_names)
     train_arr = pd.concat([X_train_df, y_train.reset_index(drop=True)], axis=1)
     test_arr = pd.concat([X_test_df, y_test.reset_index(drop=True)], axis=1)
-    
+
     # Save processed data
     train_path = os.path.join(processed_dir, config['artifacts']['processed_train_name'])
     test_path = os.path.join(processed_dir, config['artifacts']['processed_test_name'])
