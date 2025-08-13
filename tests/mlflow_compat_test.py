@@ -9,8 +9,8 @@ from sklearn.linear_model import LogisticRegression
 
 
 def test_mlflow_version():
-    """Asserts that the installed MLflow version is 2.10.2."""
-    assert mlflow.__version__ == "2.10.2"
+    """Asserts that the installed MLflow version is 2.22.1."""
+    assert mlflow.__version__ == "2.22.1"
 
 @pytest.fixture(scope="module")
 def mlflow_client(tmpdir_factory):
@@ -20,7 +20,7 @@ def mlflow_client(tmpdir_factory):
     tmp_path = tmpdir_factory.mktemp("mlflow")
     tracking_uri = f"sqlite:///{tmp_path}/mlflow.db"
     mlflow.set_tracking_uri(tracking_uri)
-    # In 2.10.2, it's good practice to set both, even if they are the same
+    # Set both tracking and registry URIs for consistency
     mlflow.set_registry_uri(tracking_uri)
     return MlflowClient(tracking_uri=tracking_uri, registry_uri=tracking_uri)
 

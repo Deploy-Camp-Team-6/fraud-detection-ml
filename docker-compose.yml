@@ -55,7 +55,7 @@ services:
         condition: service_healthy
     command: >
       bash -c "
-        pip install mlflow[auth]==2.10.2 psycopg2-binary boto3 &&
+        pip install mlflow[auth]==2.22.1 psycopg2-binary boto3 &&
         # Create MinIO bucket if it doesn't exist
         pip install mc &&
         mc alias set minio http://minio:9000 ${MINIO_ACCESS_KEY_ID:-minio_access_key} ${MINIO_SECRET_KEY:-minio_secret_key} &&
