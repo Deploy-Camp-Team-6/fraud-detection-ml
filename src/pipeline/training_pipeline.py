@@ -108,7 +108,7 @@ class TrainingPipeline:
 
         self._ensure_mlflow_bucket_exists()
         mlflow.set_tracking_uri(self.mlflow_config['tracking_uri'])
-        mlflow.set_registry_uri(self.registry_uri)
+        mlflow.config.set_registry_uri(self.registry_uri)
         mlflow.set_experiment(self.mlflow_config['experiment_name'])
 
         # Start the parent run

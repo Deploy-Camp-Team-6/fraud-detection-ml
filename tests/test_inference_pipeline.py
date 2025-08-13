@@ -42,7 +42,7 @@ def test_inference_pipeline(tmp_path):
             os.environ["MLFLOW_TRACKING_URI"] = tracking_uri
             os.environ["MLFLOW_REGISTRY_URI"] = tracking_uri
             mlflow.set_tracking_uri(tracking_uri)
-            mlflow.set_registry_uri(tracking_uri)
+            mlflow.config.set_registry_uri(tracking_uri)
 
             config = load_config()
             experiment_name = config["mlflow_config"]["experiment_name"]
