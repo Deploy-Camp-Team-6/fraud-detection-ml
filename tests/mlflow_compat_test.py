@@ -1,10 +1,12 @@
-import mlflow
-import pytest
 from pathlib import Path
-from sklearn.linear_model import LogisticRegression
-from sklearn.datasets import make_classification
+
+import mlflow
 import numpy as np
+import pytest
 from mlflow.tracking import MlflowClient
+from sklearn.datasets import make_classification
+from sklearn.linear_model import LogisticRegression
+
 
 def test_mlflow_version():
     """Asserts that the installed MLflow version is 2.10.2."""
@@ -55,7 +57,7 @@ def test_mlflow_end_to_end_roundtrip(mlflow_client):
         model_name = "test-compat-model"
         model_alias = "champion"
 
-        model_info = mlflow.sklearn.log_model(
+        mlflow.sklearn.log_model(
             sk_model=model,
             artifact_path="model",
             registered_model_name=model_name,
