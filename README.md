@@ -106,7 +106,7 @@ The training pipeline is designed to be run inside its Docker container to ensur
 
     docker run --rm --network="host" \
       -e MLFLOW_TRACKING_URI="http://localhost:5000" \
-      -e MINIO_ENDPOINT_URL="http://localhost:9000" \
+      -e MLFLOW_S3_ENDPOINT_URL="http://localhost:9000" \
       -e AWS_ACCESS_KEY_ID=$(grep MINIO_ACCESS_KEY_ID .env | cut -d '=' -f2) \
       -e AWS_SECRET_ACCESS_KEY=$(grep MINIO_SECRET_KEY .env | cut -d '=' -f2) \
       fraud-detection-pipeline \
@@ -124,7 +124,7 @@ The training pipeline is designed to be run inside its Docker container to ensur
     ```bash
     docker run --rm --network="host" \
       -e MLFLOW_TRACKING_URI="http://localhost:5000" \
-      -e MINIO_ENDPOINT_URL="http://localhost:9000" \
+      -e MLFLOW_S3_ENDPOINT_URL="http://localhost:9000" \
       -e AWS_ACCESS_KEY_ID=$(grep MINIO_ACCESS_KEY_ID .env | cut -d '=' -f2) \
       -e AWS_SECRET_ACCESS_KEY=$(grep MINIO_SECRET_KEY .env | cut -d '=' -f2) \
       fraud-detection-pipeline \

@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Ensure the MinIO endpoint is available to all subprocesses
+export MLFLOW_S3_ENDPOINT_URL
+
 # Configure DVC with credentials from environment variables
 dvc remote modify minio endpointurl ${MLFLOW_S3_ENDPOINT_URL}
 dvc remote modify minio access_key_id ${AWS_ACCESS_KEY_ID}

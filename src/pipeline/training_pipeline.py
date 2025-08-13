@@ -57,7 +57,10 @@ class TrainingPipeline:
 
     def _ensure_mlflow_bucket_exists(self):
         """Checks if the MLflow artifact bucket exists in MinIO/S3 and creates it if not."""
-        endpoint_url = os.getenv("MLFLOW_S3_ENDPOINT_URL")
+        endpoint_url = self.config['minio_credentials'].get('endpoint_url')
+        if not endpoint_url or endpoint_url.startswith("$"):
+            endpoint_url = os.getenv("MLFLOW_S3_ENDPOINT_URL")
+
         access_key = os.getenv("AWS_ACCESS_KEY_ID")
         secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
         bucket_name = self.config['minio_credentials']['bucket_name']
@@ -108,7 +111,7 @@ class TrainingPipeline:
 
         self._ensure_mlflow_bucket_exists()
         mlflow.set_tracking_uri(self.mlflow_config['tracking_uri'])
-        mlflow.set_registry_uri(self.registry_uri)
+        mlflow.config.set_registry_uri(self.registry_uri)
         mlflow.set_experiment(self.mlflow_config['experiment_name'])
 
         # Start the parent run
@@ -331,18 +334,18 @@ class TrainingPipeline:
             registry_uri=self.registry_uri,
         )
         # In MLflow 2.x, the ModelInfo object from log_model does not contain the
-        # registered model version. We fetch it manually.
+        # registered model version. We fetch it manually from the registry.
         try:
-            latest_versions = client.get_latest_versions(name=registered_model_name, stages=["None"])
-            if latest_versions:
-                version = latest_versions[0].version
+            model_versions = client.search_model_versions(f"name='{registered_model_name}'")
+            if model_versions:
+                latest_version = max(model_versions, key=lambda mv: int(mv.version))
                 client.set_registered_model_alias(
                     name=registered_model_name,
-                    version=version,
+                    version=latest_version.version,
                     alias=self.model_alias,
                 )
                 logging.info(
-                    f"Model registered as '{registered_model_name}' with version {version} and aliased as '{self.model_alias}'."
+                    f"Model registered as '{registered_model_name}' with version {latest_version.version} and aliased as '{self.model_alias}'."
                 )
             else:
                 logging.warning(f"Could not find a version for model '{registered_model_name}' to alias.")
