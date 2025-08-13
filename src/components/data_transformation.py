@@ -69,8 +69,12 @@ class DataTransformation:
             categorical_features_raw = self.config['categorical_cols']
 
             # Get feature names from the one-hot encoder
-            onehot_transformer = self.preprocessor.named_transformers_['categorical']['onehot']
-            categorical_features_encoded = onehot_transformer.get_feature_names_out(categorical_features_raw).tolist()
+            onehot_transformer = (
+                self.preprocessor.named_transformers_['categorical'].named_steps['onehot']
+            )
+            categorical_features_encoded = (
+                onehot_transformer.get_feature_names_out(categorical_features_raw).tolist()
+            )
 
             return numeric_features + categorical_features_encoded
         except Exception as e:
