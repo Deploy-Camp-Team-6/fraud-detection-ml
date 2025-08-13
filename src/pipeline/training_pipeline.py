@@ -311,7 +311,7 @@ class TrainingPipeline:
 
         # --- Log and Register Model ---
         registered_model_name = f"{self.mlflow_config['registered_model_base_name']}-{self.model_name}"
-        model_info = mlflow.sklearn.log_model(
+        mlflow.sklearn.log_model(
             sk_model=model,
             artifact_path="model",
             registered_model_name=registered_model_name,
@@ -321,9 +321,11 @@ class TrainingPipeline:
             tracking_uri=self.mlflow_config['tracking_uri'],
             registry_uri=self.registry_uri,
         )
-        # If the model is registered, assign the provided alias
-        if model_info.registered_model_version is not None:
-            version = model_info.registered_model_version
+        # Retrieve the latest model version using the MLflow client
+        versions = client.search_model_versions(f"name='{registered_model_name}'")
+        version = max((int(m.version) for m in versions), default=None)
+
+        if version is not None:
             client.set_registered_model_alias(
                 name=registered_model_name,
                 version=version,
