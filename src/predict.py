@@ -43,7 +43,10 @@ def predict(model_name: str, alias: str, input_path: str, output_path: str):
 
         # Save results
         if output_path:
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            dir_path = os.path.dirname(output_path)
+            # Guard against ``os.makedirs('')`` when using a relative filename
+            if dir_path:
+                os.makedirs(dir_path, exist_ok=True)
             logging.info(f"Saving predictions to {output_path}")
             df.to_csv(output_path, index=False)
         else:
