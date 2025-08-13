@@ -21,7 +21,7 @@ def mlflow_client(tmpdir_factory):
     tracking_uri = f"sqlite:///{tmp_path}/mlflow.db"
     mlflow.set_tracking_uri(tracking_uri)
     # Set both tracking and registry URIs for consistency
-    mlflow.set_registry_uri(tracking_uri)
+    mlflow.config.set_registry_uri(tracking_uri)
     return MlflowClient(tracking_uri=tracking_uri, registry_uri=tracking_uri)
 
 def test_mlflow_end_to_end_roundtrip(mlflow_client):
