@@ -1,12 +1,12 @@
 # src/utils.py
-import os
-import yaml
 import logging
+import os
 import re
-from typing import List, Tuple
 
 import pandas as pd
+import yaml
 from dotenv import load_dotenv
+
 
 def _replace_env_vars(config_str: str) -> str:
     """Replaces ``${VAR}`` or ``$VAR`` in a string with environment variables.
@@ -36,7 +36,7 @@ def load_config(path="config/config.yaml"):
     load_dotenv()
 
     try:
-        with open(path, 'r') as f:
+        with open(path) as f:
             config_str = f.read()
 
         # Replace environment variables
@@ -53,7 +53,7 @@ def load_config(path="config/config.yaml"):
 def load_params(path="params.yaml"):
     """Loads a YAML parameters file."""
     try:
-        with open(path, 'r') as f:
+        with open(path) as f:
             return yaml.safe_load(f)
     except FileNotFoundError:
         logging.error(f"Parameters file not found at {path}")
@@ -63,7 +63,7 @@ def load_params(path="params.yaml"):
         raise
 
 
-def drop_constant_columns(df: pd.DataFrame, columns: List[str]) -> Tuple[pd.DataFrame, List[str]]:
+def drop_constant_columns(df: pd.DataFrame, columns: list[str]) -> tuple[pd.DataFrame, list[str]]:
     """Removes columns with zero variance from a DataFrame.
 
     Args:

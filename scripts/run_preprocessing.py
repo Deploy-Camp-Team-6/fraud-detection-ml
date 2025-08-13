@@ -1,32 +1,34 @@
 # scripts/run_preprocessing.py
 import os
 import sys
-import yaml
+
 import joblib
 import pandas as pd
+import yaml
 from sklearn.model_selection import train_test_split
 
 # Add src to Python path to allow component imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from src.components.data_transformation import DataTransformation
 
+
 def main():
     """
     Main function to execute the preprocessing pipeline.
     """
     # Load configs
-    with open("params.yaml", 'r') as f:
+    with open("params.yaml") as f:
         params = yaml.safe_load(f)
-    with open("config/config.yaml", 'r') as f:
+    with open("config/config.yaml") as f:
         config = yaml.safe_load(f)
 
     # Define paths
     raw_data_path = os.path.join(config['data_source']['raw_data_dir'], config['data_source']['raw_data_filename'])
     processed_dir = config['data_source']['processed_data_dir']
-    
+
     # Create processed directory if it doesn't exist
     os.makedirs(processed_dir, exist_ok=True)
-    
+
     # Load data
     df = pd.read_csv(raw_data_path)
 

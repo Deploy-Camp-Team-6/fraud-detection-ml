@@ -1,14 +1,16 @@
+import argparse
+import logging
 import os
 import sys
-import logging
-import argparse
-import pandas as pd
+
 import mlflow
+import pandas as pd
 from mlflow.tracking import MlflowClient
 
 # Add project root to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from src.utils import load_config
+
 
 def predict(model_name: str, alias: str, input_path: str, output_path: str):
     """Load a registered model from MLflow and generate predictions.

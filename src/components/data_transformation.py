@@ -1,11 +1,11 @@
 import logging
-from typing import List
 
 import numpy as np
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler, FunctionTransformer
+from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
+
 
 class DataTransformation:
     """Handles feature engineering and preprocessing based on configuration."""
@@ -52,11 +52,11 @@ class DataTransformation:
             ],
             remainder='drop' # Drop columns not specified in transformers
         )
-        
+
         logging.info("Preprocessing pipeline built successfully.")
         return preprocessor
 
-    def get_feature_names(self) -> List[str]:
+    def get_feature_names(self) -> list[str]:
         """Returns the feature names after transformation."""
         if not hasattr(self.preprocessor, "named_transformers_"):
             raise AttributeError(

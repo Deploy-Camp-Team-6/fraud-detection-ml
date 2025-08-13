@@ -1,14 +1,16 @@
+import logging
 import os
 import sys
-import logging
-import pandas as pd
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import seaborn as sns
 
 # Add project root to Python path to allow importing utils
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from src.utils import load_config
+
 
 def run_analysis():
     """

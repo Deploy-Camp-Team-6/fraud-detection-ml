@@ -1,30 +1,39 @@
-import os
-import sys
-import logging
 import argparse
 import copy
-import pandas as pd
-import numpy as np
+import json
+import logging
+import os
+import sys
+from pathlib import Path
+
+import boto3
+import matplotlib.pyplot as plt
 import mlflow
 import mlflow.sklearn
-from mlflow.tracking import MlflowClient
-import boto3
-import json
-from pathlib import Path
-import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import seaborn as sns
 from botocore.exceptions import ClientError
-from sklearn.model_selection import StratifiedKFold, GridSearchCV, cross_val_predict
-from sklearn.pipeline import Pipeline as SkPipeline
-from imblearn.pipeline import Pipeline as ImbPipeline
 from imblearn.over_sampling import SMOTE
-from sklearn.metrics import make_scorer, f1_score, precision_score, recall_score, roc_auc_score, confusion_matrix
+from imblearn.pipeline import Pipeline as ImbPipeline
+from mlflow.tracking import MlflowClient
+from sklearn.metrics import (
+    confusion_matrix,
+    f1_score,
+    make_scorer,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_val_predict
+from sklearn.pipeline import Pipeline as SkPipeline
 
 # Add project root to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from src.components.data_transformation import DataTransformation
 from src.components.model_trainer import ModelTrainer
-from src.utils import load_config, load_params, drop_constant_columns
+from src.utils import drop_constant_columns, load_config, load_params
+
 
 class TrainingPipeline:
     def __init__(self, model_name: str, tune: bool, use_best_params: bool = False, tune_and_evaluate: bool = False, model_alias: str | None = None):
@@ -217,9 +226,9 @@ class TrainingPipeline:
     def _run_tuning(self, pipeline, X, y, register_model: bool = True):
         """Performs hyperparameter tuning using GridSearchCV."""
         logging.info(f"Starting hyperparameter tuning for {self.model_name}...")
-        
+
         param_grid = self.params['tuning'][self.model_name]['param_grid']
-        
+
         # Log the parameter grid as a JSON artifact
         param_grid_path = self.project_root / "param_grid.json"
         with open(param_grid_path, 'w') as f:
@@ -262,7 +271,7 @@ class TrainingPipeline:
             'f1': make_scorer(f1_score),
             'roc_auc': make_scorer(roc_auc_score)
         }
-        
+
         fold_scores = []
         for i, (train_index, test_index) in enumerate(self.cv_splitter.split(X, y)):
             with mlflow.start_run(nested=True, run_name=f"fold-{i+1}"):
@@ -300,7 +309,7 @@ class TrainingPipeline:
     def _log_and_register_model(self, model, X, y):
         """Logs artifacts, plots, and registers the model."""
         logging.info("Logging model, artifacts, and registering with MLflow.")
-        
+
         # --- Log plots ---
         # Use out-of-fold predictions for an unbiased confusion matrix
         y_pred_cv = cross_val_predict(model, X, y, cv=self.cv_splitter, n_jobs=-1)

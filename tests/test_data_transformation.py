@@ -1,12 +1,14 @@
-import pandas as pd
-import numpy as np
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-import pytest
+import os
 
 # Add src to path to allow imports
 import sys
-import os
+
+import numpy as np
+import pandas as pd
+import pytest
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from src.components.data_transformation import DataTransformation
