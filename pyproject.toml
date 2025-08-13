@@ -11,28 +11,110 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.11"
+# Core Data Processing
 pandas = "^2.2.2"
-scikit-learn = ">=1.5,<1.6"
+numpy = "^1.26.0"
+
+# Machine Learning Libraries
+scikit-learn = "^1.4.0"  # More stable version with better MLflow integration
 xgboost = "^2.0.3"
-lightgbm = "^4.4.0"
-mlflow = "^3.0.0"
-dvc = {extras = ["s3"], version = "^3.50.1"}
+lightgbm = "^4.3.0"  # Slightly older for better stability
+imbalanced-learn = "^0.12.0"  # Compatible with sklearn 1.4.x
+
+# MLOps & Experiment Tracking
+mlflow = "^2.10.2"  # Downgraded for better stability and compatibility
+dvc = {extras = ["s3"], version = "^3.48.4"}  # More stable version
+
+# Configuration & Environment
 python-dotenv = "^1.0.1"
 pyyaml = "^6.0.1"
-boto3 = "^1.34.119"
-matplotlib = "^3.9.0"
-seaborn = "^0.13.2"
-jupyter = "^1.0.0"
-joblib = "^1.4.2"
-marshmallow = "==3.20.1"
-imbalanced-learn = "^0.13.0"
+marshmallow = "^3.21.0"  # Updated for better compatibility
 
+# AWS & Cloud Integration
+boto3 = "^1.34.119"
+
+# Visualization
+matplotlib = "^3.8.4"  # More stable version
+seaborn = "^0.13.2"
+plotly = "^5.19.0"  # Added for better fraud detection visualizations
+
+# Utilities & Performance
+joblib = "^1.4.2"
+numba = "^0.59.1"  # Added for performance optimization
+
+# Development & Jupyter
+jupyter = "^1.0.0"
+ipykernel = "^6.29.0"  # Added for better notebook support
+
+# Model Serving & API (Added for production deployment)
+fastapi = "^0.110.0"
+uvicorn = {extras = ["standard"], version = "^0.29.0"}
+pydantic = "^2.6.4"
+
+# Monitoring & Logging (Added for production monitoring)
+prometheus-client = "^0.20.0"
+structlog = "^24.1.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.1.1"  # More stable version
+pytest-cov = "^5.0.0"  # Added for test coverage
+ruff = "^0.3.4"  # More stable version
+black = "^24.3.0"  # Added for consistent formatting
+isort = "^5.13.2"  # Added for import sorting
+mypy = "^1.9.0"  # Added for type checking
+safety = "^3.1.0"  # Updated version
+pre-commit = "^3.7.0"  # Added for git hooks
+
+[tool.poetry.group.test.dependencies]
+pytest-mock = "^3.12.0"
+pytest-asyncio = "^0.23.6"
+httpx = "^0.27.0"  # For API testing
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3.2"
-ruff = "^0.5.0"
-safety = "^3.0.0"
+# Ruff configuration for consistent code style
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+"tests/**/*.py" = ["S101"]
+
+# Black configuration
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+# Pytest configuration
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --cov=src --cov-report=term-missing"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
