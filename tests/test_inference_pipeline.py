@@ -1,12 +1,12 @@
 import os
-import sys
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 
+import mlflow
 import numpy as np
 import pandas as pd
-import mlflow
 from mlflow.tracking import MlflowClient
 
 # Ensure src is on path

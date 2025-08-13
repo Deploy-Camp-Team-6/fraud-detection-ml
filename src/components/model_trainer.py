@@ -1,6 +1,8 @@
 import logging
+
 import numpy as np
 from sklearn.linear_model import LogisticRegression
+
 
 class ModelTrainer:
     """A factory for creating and training different models."""
@@ -51,7 +53,7 @@ class ModelTrainer:
             if not self.handle_imbalance and 'class_weight' in model_params:
                 del model_params['class_weight']
             return LogisticRegression(random_state=self.random_state, **model_params)
-        
+
         else:
             logging.error(f"Unsupported model: {self.model_name}")
             raise ValueError(f"Unsupported model: {self.model_name}")
