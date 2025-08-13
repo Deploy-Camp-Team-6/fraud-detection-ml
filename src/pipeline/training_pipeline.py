@@ -331,18 +331,18 @@ class TrainingPipeline:
             registry_uri=self.registry_uri,
         )
         # In MLflow 2.x, the ModelInfo object from log_model does not contain the
-        # registered model version. We fetch it manually.
+        # registered model version. We fetch it manually from the registry.
         try:
-            latest_versions = client.get_latest_versions(name=registered_model_name, stages=["None"])
-            if latest_versions:
-                version = latest_versions[0].version
+            model_versions = client.search_model_versions(f"name='{registered_model_name}'")
+            if model_versions:
+                latest_version = max(model_versions, key=lambda mv: int(mv.version))
                 client.set_registered_model_alias(
                     name=registered_model_name,
-                    version=version,
+                    version=latest_version.version,
                     alias=self.model_alias,
                 )
                 logging.info(
-                    f"Model registered as '{registered_model_name}' with version {version} and aliased as '{self.model_alias}'."
+                    f"Model registered as '{registered_model_name}' with version {latest_version.version} and aliased as '{self.model_alias}'."
                 )
             else:
                 logging.warning(f"Could not find a version for model '{registered_model_name}' to alias.")
