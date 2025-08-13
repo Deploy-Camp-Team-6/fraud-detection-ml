@@ -4,6 +4,12 @@ set -e
 # Ensure the MinIO endpoint is available to all subprocesses
 export MLFLOW_S3_ENDPOINT_URL
 
+# Verify that the MinIO endpoint is configured
+if [ -z "$MLFLOW_S3_ENDPOINT_URL" ]; then
+  echo "Error: MLFLOW_S3_ENDPOINT_URL is not set." >&2
+  exit 1
+fi
+
 # Configure DVC with credentials from environment variables
 dvc remote modify minio endpointurl ${MLFLOW_S3_ENDPOINT_URL}
 dvc remote modify minio access_key_id ${AWS_ACCESS_KEY_ID}
