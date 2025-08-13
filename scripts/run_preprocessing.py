@@ -58,15 +58,20 @@ def main():
     X_train_processed = preprocessor.fit_transform(X_train)
     X_test_processed = preprocessor.transform(X_test)
 
-    # Combine processed features and target for saving
-    train_arr = pd.concat([pd.DataFrame(X_train_processed), y_train.reset_index(drop=True)], axis=1)
-    test_arr = pd.concat([pd.DataFrame(X_test_processed), y_test.reset_index(drop=True)], axis=1)
+    # Retrieve transformed feature names
+    feature_names = data_transformer.get_feature_names()
 
+    # Combine processed features and target for saving
+    X_train_df = pd.DataFrame(X_train_processed, columns=feature_names)
+    X_test_df = pd.DataFrame(X_test_processed, columns=feature_names)
+    train_arr = pd.concat([X_train_df, y_train.reset_index(drop=True)], axis=1)
+    test_arr = pd.concat([X_test_df, y_test.reset_index(drop=True)], axis=1)
+    
     # Save processed data
     train_path = os.path.join(processed_dir, config['artifacts']['processed_train_name'])
     test_path = os.path.join(processed_dir, config['artifacts']['processed_test_name'])
-    train_arr.to_csv(train_path, index=False, header=False)
-    test_arr.to_csv(test_path, index=False, header=False)
+    train_arr.to_csv(train_path, index=False, header=True)
+    test_arr.to_csv(test_path, index=False, header=True)
 
     # Save preprocessor object
     preprocessor_path = os.path.join(processed_dir, config['artifacts']['preprocessor_name'])

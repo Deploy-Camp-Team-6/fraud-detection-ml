@@ -133,8 +133,8 @@ class TrainingPipeline:
         mlflow.log_params(params_to_log['train'])
 
         # Log config and params files as artifacts
-        mlflow.log_artifact(self.project_root / "config/config.yaml", "config")
-        mlflow.log_artifact(self.project_root / "params.yaml", "config")
+        mlflow.log_artifact(str(self.project_root / "config/config.yaml"), "config")
+        mlflow.log_artifact(str(self.project_root / "params.yaml"), "config")
 
     def _create_pipeline(self, params, y_data):
         """Creates a full scikit-learn pipeline with preprocessing and a model."""
@@ -233,7 +233,7 @@ class TrainingPipeline:
         param_grid_path = self.project_root / "param_grid.json"
         with open(param_grid_path, 'w') as f:
             json.dump(param_grid, f, indent=4)
-        mlflow.log_artifact(param_grid_path, "tuning")
+        mlflow.log_artifact(str(param_grid_path), "tuning")
         param_grid_path.unlink() # Clean up the file
 
         grid_search = GridSearchCV(
@@ -252,7 +252,7 @@ class TrainingPipeline:
         cv_results_df = pd.DataFrame(grid_search.cv_results_)
         cv_results_path = self.project_root / "tuning_cv_results.csv"
         cv_results_df.to_csv(cv_results_path, index=False)
-        mlflow.log_artifact(cv_results_path, "tuning")
+        mlflow.log_artifact(str(cv_results_path), "tuning")
         cv_results_path.unlink()
 
         # Log the best model found only if this is a standalone tuning run
@@ -320,7 +320,7 @@ class TrainingPipeline:
 
         # --- Log and Register Model ---
         registered_model_name = f"{self.mlflow_config['registered_model_base_name']}-{self.model_name}"
-        model_info = mlflow.sklearn.log_model(
+        mlflow.sklearn.log_model(
             sk_model=model,
             artifact_path="model",
             registered_model_name=registered_model_name,
@@ -330,19 +330,24 @@ class TrainingPipeline:
             tracking_uri=self.mlflow_config['tracking_uri'],
             registry_uri=self.registry_uri,
         )
-        # If the model is registered, assign the provided alias
-        if model_info.registered_model_version is not None:
-            version = model_info.registered_model_version
-            client.set_registered_model_alias(
-                name=registered_model_name,
-                version=version,
-                alias=self.model_alias,
-            )
-            logging.info(
-                f"Model registered as '{registered_model_name}' with version {version} and aliased as '{self.model_alias}'."
-            )
-        else:
-            logging.warning("No model version found to alias.")
+        # In MLflow 2.x, the ModelInfo object from log_model does not contain the
+        # registered model version. We fetch it manually.
+        try:
+            latest_versions = client.get_latest_versions(name=registered_model_name, stages=["None"])
+            if latest_versions:
+                version = latest_versions[0].version
+                client.set_registered_model_alias(
+                    name=registered_model_name,
+                    version=version,
+                    alias=self.model_alias,
+                )
+                logging.info(
+                    f"Model registered as '{registered_model_name}' with version {version} and aliased as '{self.model_alias}'."
+                )
+            else:
+                logging.warning(f"Could not find a version for model '{registered_model_name}' to alias.")
+        except Exception as e:
+            logging.warning(f"An error occurred while setting the model alias: {e}")
 
     def _log_confusion_matrix(self, y_true, y_pred):
         """Creates, logs, and saves a confusion matrix plot."""

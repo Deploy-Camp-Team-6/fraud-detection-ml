@@ -5,6 +5,7 @@ import sys
 
 import mlflow
 import pandas as pd
+from mlflow.tracking import MlflowClient
 
 # Add project root to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -27,8 +28,15 @@ def predict(model_name: str, alias: str, input_path: str, output_path: str):
         mlflow.set_tracking_uri(mlflow_config['tracking_uri'])
         mlflow.set_registry_uri(registry_uri)
 
-        # Load the model using a registered alias
-        model_uri = f"models:/{mlflow_config['registered_model_base_name']}-{model_name}@{alias}"
+        # Resolve the alias to a concrete model version
+        registered_model_name = (
+            f"{mlflow_config['registered_model_base_name']}-{model_name}"
+        )
+        client = MlflowClient()
+        model_version = client.get_model_version_by_alias(
+            name=registered_model_name, alias=alias
+        )
+        model_uri = f"models:/{registered_model_name}/{model_version.version}"
         logging.info(f"Loading model from URI: {model_uri}")
         model = mlflow.sklearn.load_model(model_uri)
 
