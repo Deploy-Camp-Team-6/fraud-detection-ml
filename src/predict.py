@@ -8,7 +8,7 @@ import pandas as pd
 from mlflow.tracking import MlflowClient
 
 # Add project root to Python path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from src.utils import load_config
 
 
@@ -23,16 +23,15 @@ def predict(model_name: str, alias: str, input_path: str, output_path: str):
     """
     try:
         config = load_config()
-        mlflow_config = config['mlflow_config']
-        registry_uri = mlflow_config.get('registry_uri', mlflow_config['tracking_uri'])
-        mlflow.set_tracking_uri(mlflow_config['tracking_uri'])
-        mlflow.set_registry_uri(registry_uri)
+        mlflow_config = config["mlflow_config"]
+        tracking_uri = mlflow_config["tracking_uri"]
+        registry_uri = mlflow_config.get("registry_uri", tracking_uri)
 
         # Resolve the alias to a concrete model version
         registered_model_name = (
             f"{mlflow_config['registered_model_base_name']}-{model_name}"
         )
-        client = MlflowClient()
+        client = MlflowClient(tracking_uri=tracking_uri, registry_uri=registry_uri)
         model_version = client.get_model_version_by_alias(
             name=registered_model_name, alias=alias
         )
@@ -49,7 +48,7 @@ def predict(model_name: str, alias: str, input_path: str, output_path: str):
         predictions = model.predict(df)
 
         # Add predictions to the dataframe
-        df['prediction'] = predictions
+        df["prediction"] = predictions
 
         # Save results
         if output_path:
@@ -69,10 +68,15 @@ def predict(model_name: str, alias: str, input_path: str, output_path: str):
         logging.error(f"An error occurred during prediction: {e}", exc_info=True)
         raise
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-    parser = argparse.ArgumentParser(description="Make predictions using a registered model.")
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
+
+    parser = argparse.ArgumentParser(
+        description="Make predictions using a registered model."
+    )
     parser.add_argument(
         "--model",
         type=str,
@@ -86,7 +90,9 @@ if __name__ == "__main__":
         default=os.getenv("MODEL_REGISTRY_ALIAS", "champion"),
         help="Alias of the model version to use.",
     )
-    parser.add_argument("--input", type=str, required=True, help="Path to the input CSV file.")
+    parser.add_argument(
+        "--input", type=str, required=True, help="Path to the input CSV file."
+    )
     parser.add_argument(
         "--output",
         type=str,
@@ -95,4 +101,9 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    predict(model_name=args.model, alias=args.alias, input_path=args.input, output_path=args.output)
+    predict(
+        model_name=args.model,
+        alias=args.alias,
+        input_path=args.input,
+        output_path=args.output,
+    )
