@@ -47,6 +47,9 @@ services:
       - MLFLOW_DB_PASSWORD=${MLFLOW_DB_PASSWORD:-mlflow_pass}
       - MINIO_ACCESS_KEY_ID=${MINIO_ACCESS_KEY_ID:-minio_access_key}
       - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minio_secret_key}
+      - AWS_ACCESS_KEY_ID=${MINIO_ACCESS_KEY_ID:-minio_access_key}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_SECRET_KEY:-minio_secret_key}
+      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
       - MLFLOW_FLASK_SECRET_KEY=${MLFLOW_FLASK_SECRET_KEY:-my_secret_key}
     depends_on:
       mlflow-db:
