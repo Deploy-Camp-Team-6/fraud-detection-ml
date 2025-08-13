@@ -57,7 +57,10 @@ class TrainingPipeline:
 
     def _ensure_mlflow_bucket_exists(self):
         """Checks if the MLflow artifact bucket exists in MinIO/S3 and creates it if not."""
-        endpoint_url = os.getenv("MLFLOW_S3_ENDPOINT_URL")
+        endpoint_url = self.config['minio_credentials'].get('endpoint_url')
+        if not endpoint_url or endpoint_url.startswith("$"):
+            endpoint_url = os.getenv("MLFLOW_S3_ENDPOINT_URL")
+
         access_key = os.getenv("AWS_ACCESS_KEY_ID")
         secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
         bucket_name = self.config['minio_credentials']['bucket_name']
