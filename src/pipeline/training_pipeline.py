@@ -16,6 +16,7 @@ import seaborn as sns
 from botocore.exceptions import ClientError
 from imblearn.over_sampling import SMOTE
 from imblearn.pipeline import Pipeline as ImbPipeline
+from mlflow.data import from_pandas
 from mlflow.tracking import MlflowClient
 from sklearn.metrics import (
     confusion_matrix,
@@ -222,9 +223,20 @@ class TrainingPipeline:
 
     def _load_data(self):
         """Loads data from the source specified in config."""
-        raw_data_path = self.project_root / self.config['data_source']['raw_data_dir'] / self.config['data_source']['raw_data_filename']
+        raw_data_path = (
+            self.project_root
+            / self.config['data_source']['raw_data_dir']
+            / self.config['data_source']['raw_data_filename']
+        )
         logging.info(f"Loading raw data from {raw_data_path}")
-        return pd.read_csv(raw_data_path)
+        df = pd.read_csv(raw_data_path)
+        try:
+            mlflow.log_artifact(str(raw_data_path), artifact_path="data")
+            dataset = from_pandas(df, source=str(raw_data_path), name="training_data")
+            mlflow.log_input(dataset, context="training")
+        except Exception as e:
+            logging.warning(f"Could not log dataset to MLflow: {e}")
+        return df
 
     def _run_tuning(self, pipeline, X, y, register_model: bool = True):
         """Performs hyperparameter tuning using GridSearchCV."""
